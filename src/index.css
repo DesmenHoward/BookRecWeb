@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #7D6E83;
+  --accent: #A75D5D;
+  --background: #F9F5EB;
+  --surface: #EFE3D0;
+  --text: #4F4557;
+  --text-light: #7D6E83;
+  --border: #D0B8A8;
+}
+
+body {
+  @apply bg-background text-text;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.app-container {
+  @apply min-h-screen flex flex-col;
+}
+
+.main-content {
+  @apply flex-1 p-5 max-w-7xl mx-auto w-full;
+}
+
+.nav-container {
+  @apply bg-surface py-4 shadow-md;
+}
+
+.nav-content {
+  @apply max-w-7xl mx-auto flex justify-between items-center px-5;
+}
+
+.nav-links {
+  @apply flex gap-8;
+}
+
+.nav-link {
+  @apply text-text font-medium px-4 py-2 rounded-lg transition-colors hover:bg-accent/10;
+}
+
+.nav-link.active {
+  @apply text-accent bg-accent/10;
+}
+
+.button {
+  @apply bg-accent text-white px-6 py-3 rounded-lg font-semibold cursor-pointer 
+         transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.input {
+  @apply w-full px-4 py-3 border border-border rounded-lg text-base text-text
+         focus:outline-none focus:border-accent;
+}

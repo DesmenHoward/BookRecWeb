@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import { searchBooks, saveBookToStorage } from '../../googleBooksApi';
+import type { Book } from '../../googleBooksApi';
 import { useBookStore } from '../store/bookStore';
 import { Heart, Trash2 } from 'lucide-react';
 
 export default function Favorites() {
   const { favorites, removeFromFavorites, addToFavorites } = useBookStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<Book[]>([]);
 
   const handleSearch = async () => {
     const results = await searchBooks(searchQuery);
     setSearchResults(results);
   };
 
-  const handleAddToFavorites = (book) => {
+  const handleAddToFavorites = (book: Book) => {
     try {
       console.log('Adding book to favorites:', book);
       addToFavorites(book);

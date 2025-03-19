@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useBookStore } from '../store/bookStore';
-import { Book } from '../types/book';
 import GenreSelectionModal from '../components/GenreSelectionModal';
 import GenreFilter from '../components/GenreFilter';
 import SwipeableBookCard from '../components/SwipeableBookCard';
@@ -108,7 +107,7 @@ export default function Home() {
 
             {/* Swipeable card container */}
             <div className="relative h-[600px] mb-8">
-              {books.slice(currentBookIndex, currentBookIndex + 1).map((book, index) => (
+              {books.slice(currentBookIndex, currentBookIndex + 1).map(book => (
                 <SwipeableBookCard
                   key={book.id}
                   book={book}

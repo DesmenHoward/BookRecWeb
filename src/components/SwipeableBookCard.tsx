@@ -71,9 +71,20 @@ export default function SwipeableBookCard({ book, onSwipe }: SwipeableBookCardPr
         >
           <div className="relative w-full h-full bg-white rounded-2xl shadow-xl overflow-hidden">
             <img
-              src={book.coverUrl}
+              src={book.coverImages.large}
               alt={book.title}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                const img = e.target as HTMLImageElement;
+                // Try medium size if large fails
+                if (img.src === book.coverImages.large) {
+                  img.src = book.coverImages.medium;
+                }
+                // Try small size if medium fails
+                else if (img.src === book.coverImages.medium) {
+                  img.src = book.coverImages.small;
+                }
+              }}
             />
             
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />

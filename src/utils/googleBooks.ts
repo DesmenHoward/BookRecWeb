@@ -46,15 +46,38 @@ function isEnglishText(text: string): boolean {
   return englishPattern.test(sample) && hasEnglishWords;
 }
 
-function getCoverUrl(imageLinks?: { thumbnail?: string; smallThumbnail?: string }): string {
-  if (!imageLinks) return 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
+function getCoverUrl(imageLinks?: { thumbnail?: string; smallThumbnail?: string }, size: 'small' | 'medium' | 'large' = 'medium'): string {
+  const defaultCover = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-1.2.1&auto=format&fit=crop';
+  
+  if (!imageLinks) {
+    return `${defaultCover}&w=${size === 'small' ? 400 : size === 'medium' ? 600 : 800}&q=80`;
+  }
   
   try {
-    const secureUrl = (url: string) => 
-      url.replace('http://', 'https://')
-         .replace('zoom=1', 'zoom=2')
-         .replace('&edge=curl', '');
+    const secureUrl = (url: string) => {
+      // Convert to HTTPS and remove edge=curl parameter
+      let processedUrl = url
+        .replace('http://', 'https://')
+        .replace('&edge=curl', '');
+
+      // Get dimensions based on size
+      const dimensions = {
+        small: { w: 400, h: 600 },
+        medium: { w: 600, h: 900 },
+        large: { w: 800, h: 1200 }
+      }[size];
+
+      // Upgrade image quality and size
+      processedUrl = processedUrl
+        .replace('zoom=1', 'zoom=3')  // Higher quality zoom
+        .replace(/w=\d+/, `w=${dimensions.w}`)
+        .replace(/h=\d+/, `h=${dimensions.h}`)
+        .replace(/&fife=[^&]*/, `&fife=w${dimensions.w}-h${dimensions.h}`);
+
+      return processedUrl;
+    };
     
+    // Try to get the best quality image available
     if (imageLinks.thumbnail) {
       return secureUrl(imageLinks.thumbnail);
     }
@@ -66,7 +89,7 @@ function getCoverUrl(imageLinks?: { thumbnail?: string; smallThumbnail?: string 
     console.error('Error processing cover URL:', error);
   }
   
-  return 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
+  return `${defaultCover}&w=${size === 'small' ? 400 : size === 'medium' ? 600 : 800}&q=80`;
 }
 
 function convertGoogleBook(googleBook: GoogleBook): Book | null {
@@ -85,12 +108,21 @@ function convertGoogleBook(googleBook: GoogleBook): Book | null {
       return null;
     }
 
+    // Get cover URLs for different sizes
+    const defaultCover = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-1.2.1&auto=format&fit=crop';
+    const coverImages = {
+      small: getCoverUrl(volumeInfo.imageLinks, 'small'),
+      medium: getCoverUrl(volumeInfo.imageLinks, 'medium'),
+      large: getCoverUrl(volumeInfo.imageLinks, 'large')
+    };
+
     return {
       id: googleBook.id,
       title: volumeInfo.title,
       author: volumeInfo.authors[0],
       description,
-      coverUrl: getCoverUrl(volumeInfo.imageLinks),
+      coverUrl: coverImages.medium, // Keep coverUrl for backward compatibility
+      coverImages,
       genres: volumeInfo.categories || ['Fiction'],
       publishedYear: volumeInfo.publishedDate ? 
         new Date(volumeInfo.publishedDate).getFullYear() : 
@@ -120,7 +152,7 @@ async function fetchBooksForGenre(genre: string, maxResults: number = 40): Promi
 
   const books = response.data.items
     .map(convertGoogleBook)
-    .filter((book): book is Book => 
+    .filter((book: Book | null) => 
       book !== null &&
       book.description.length > 100 &&
       book.genres.includes(genre)
@@ -140,7 +172,8 @@ export async function getInitialBookList(selectedGenres?: string[]): Promise<Boo
   }
 
   try {
-    const allBooks: Book[] = [];
+    const genreBooks: Record<string, Book[]> = {};
+    const booksPerGenre = 20; // Number of books to fetch per genre
 
     if (selectedGenres?.length) {
       // Process each genre
@@ -149,21 +182,46 @@ export async function getInitialBookList(selectedGenres?: string[]): Promise<Boo
         const needsMoreBooks = await storage.shouldFetchMoreBooks(genre);
         
         // First try to get cached books
-        let genreBooks = await storage.getBooksByGenre(genre);
+        let books = await storage.getBooksByGenre(genre);
         
         // If we need more books, fetch them from API
-        if (needsMoreBooks || genreBooks.length < 20) {
+        if (needsMoreBooks || books.length < booksPerGenre) {
           const newBooks = await fetchBooksForGenre(genre);
-          genreBooks = [...new Set([...genreBooks, ...newBooks])];
+          books = [...new Set([...books, ...newBooks])];
         }
         
-        allBooks.push(...genreBooks);
+        // Store books for this genre
+        genreBooks[genre] = books;
       }
 
-      // Ensure we have enough unique books
-      return [...new Set(allBooks)]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 40);
+      // Create a balanced mix of books from all genres
+      const mixedBooks: Book[] = [];
+      let genreIndex = 0;
+      
+      // Keep adding books until we have enough or run out of books
+      while (mixedBooks.length < 40 && Object.values(genreBooks).some(books => books.length > 0)) {
+        const currentGenre = selectedGenres[genreIndex];
+        const genreBookList = genreBooks[currentGenre];
+        
+        if (genreBookList.length > 0) {
+          // Take a random book from this genre
+          const randomIndex = Math.floor(Math.random() * genreBookList.length);
+          const book = genreBookList[randomIndex];
+          
+          // Only add if not already in mixedBooks
+          if (!mixedBooks.some(b => b.id === book.id)) {
+            mixedBooks.push(book);
+          }
+          
+          // Remove the book from the genre's list
+          genreBookList.splice(randomIndex, 1);
+        }
+        
+        // Move to next genre
+        genreIndex = (genreIndex + 1) % selectedGenres.length;
+      }
+
+      return mixedBooks;
     }
 
     // If no genres specified, use default fiction genre
@@ -198,7 +256,7 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
     for (const genre of likedGenres) {
       const genreBooks = await storage.getBooksByGenre(genre);
       recommendations.push(
-        ...genreBooks.filter(book => 
+        ...genreBooks.filter((book: Book) => 
           !likedBooks.some(liked => liked.id === book.id) &&
           !recommendations.some(rec => rec.id === book.id)
         )
@@ -224,7 +282,7 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
         if (response.data?.items) {
           const authorBooks = response.data.items
             .map(convertGoogleBook)
-            .filter((book): book is Book => 
+            .filter((book: Book | null) => 
               book !== null &&
               !likedBooks.some(liked => liked.id === book.id) &&
               !recommendations.some(rec => rec.id === book.id) &&
@@ -243,7 +301,7 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
           
           const genreBooks = await fetchBooksForGenre(genre, 10);
           recommendations.push(
-            ...genreBooks.filter(book =>
+            ...genreBooks.filter((book: Book) =>
               !likedBooks.some(liked => liked.id === book.id) &&
               !recommendations.some(rec => rec.id === book.id)
             )
@@ -287,7 +345,7 @@ export async function searchBooks(query: string): Promise<Book[]> {
     
     const books = response.data.items
       .map(convertGoogleBook)
-      .filter((book): book is Book => 
+      .filter((book: Book | null) => 
         book !== null &&
         book.description.length > 100
       );

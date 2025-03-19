@@ -40,8 +40,28 @@ export const useBookStore = create<BookState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const books = await getInitialBookList(selectedGenres);
+      
+      // Ensure all books have valid cover images
+      const validBooks = books.filter(book => 
+        book.coverImages &&
+        book.coverImages.large &&
+        book.coverImages.medium &&
+        book.coverImages.small
+      );
+
+      if (validBooks.length < limit) {
+        // If we don't have enough valid books, fetch more
+        const additionalBooks = await getInitialBookList(selectedGenres);
+        validBooks.push(...additionalBooks.filter(book => 
+          book.coverImages &&
+          book.coverImages.large &&
+          book.coverImages.medium &&
+          book.coverImages.small
+        ));
+      }
+
       set({ 
-        books: books.slice(0, limit),
+        books: validBooks.slice(0, limit),
         currentBookIndex: 0,
         isLoading: false 
       });

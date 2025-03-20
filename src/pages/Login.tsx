@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { Mail, Lock, Eye, EyeOff, BookOpen } from 'lucide-react';
+import { Mail, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const { login, signUp, error: authError, clearError, isLoading, isAuthenticated } = useAuthStore();
@@ -44,7 +44,7 @@ export default function Login() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="flex justify-center">
-            <BookOpen size={60} className="text-accent" />
+            <img src="/favicon.PNG" alt="BookRec Logo" className="w-[240px] h-[240px] rounded-3xl" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-text">
             {isSignUp ? 'Create Account' : 'Welcome Back'}

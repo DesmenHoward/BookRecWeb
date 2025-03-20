@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, Heart, User, Sparkles } from 'lucide-react';
+import { Heart, User, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 export default function Navigation() {
@@ -16,7 +16,7 @@ export default function Navigation() {
     <nav className="nav-container">
       <div className="nav-content">
         <Link to="/" className="text-2xl font-bold text-accent flex items-center gap-2">
-          <BookOpen />
+          <img src="/favicon.PNG" alt="BookRec Logo" className="w-12 h-12 rounded-lg" />
           <span>BookRec</span>
         </Link>
 

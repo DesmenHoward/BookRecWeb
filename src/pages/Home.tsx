@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useBookStore } from '../store/bookStore';
 import GenreSelectionModal from '../components/GenreSelectionModal';
 import GenreFilter from '../components/GenreFilter';
@@ -19,6 +19,9 @@ export default function Home() {
 
   const [showGenreSelection, setShowGenreSelection] = useState(true);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
   const currentBook = books[currentBookIndex];
 
   useEffect(() => {
@@ -41,6 +44,42 @@ export default function Home() {
 
   const handleSwipe = (direction: 'left' | 'right') => {
     swipeBook(direction === 'right');
+  };
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    if ('touches' in e) {
+      setDragStartX(e.touches[0].clientX);
+    } else {
+      setDragStartX(e.clientX);
+    }
+  };
+
+  const handleDragMove = (e: React.DragEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging || !cardRef.current) return;
+
+    const currentX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const deltaX = currentX - dragStartX;
+    
+    cardRef.current.style.transform = `translateX(${deltaX}px) rotate(${deltaX * 0.1}deg)`;
+    cardRef.current.style.opacity = `${1 - Math.abs(deltaX) / 500}`;
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if (!isDragging || !cardRef.current) return;
+
+    const currentX = 'changedTouches' in e ? e.changedTouches[0].clientX : e.clientX;
+    const deltaX = currentX - dragStartX;
+    
+    if (Math.abs(deltaX) > 100) {
+      // Swipe threshold met
+      handleSwipe(deltaX > 0 ? 'right' : 'left');
+    }
+
+    // Reset card position
+    cardRef.current.style.transform = 'none';
+    cardRef.current.style.opacity = '1';
+    setIsDragging(false);
   };
 
   if (isLoading) {
@@ -108,11 +147,23 @@ export default function Home() {
             {/* Swipeable card container */}
             <div className="relative h-[600px] mb-8">
               {books.slice(currentBookIndex, currentBookIndex + 1).map(book => (
-                <SwipeableBookCard
+                <div
                   key={book.id}
-                  book={book}
-                  onSwipe={handleSwipe}
-                />
+                  ref={cardRef}
+                  draggable
+                  onDragStart={handleDragStart}
+                  onDrag={handleDragMove}
+                  onDragEnd={handleDragEnd}
+                  onTouchStart={handleDragStart}
+                  onTouchMove={handleDragMove}
+                  onTouchEnd={handleDragEnd}
+                  className="absolute inset-0 touch-none cursor-grab active:cursor-grabbing transition-transform"
+                >
+                  <SwipeableBookCard
+                    book={book}
+                    onSwipe={handleSwipe}
+                  />
+                </div>
               ))}
             </div>
 

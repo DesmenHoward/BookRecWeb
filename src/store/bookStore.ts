@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Book } from '../types/book';
 import { getInitialBookList, getBookRecommendations, convertGoogleBook } from '../utils/googleBooks';
 import { firestore } from '../firebase/config';
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { useAuthStore } from './authStore';
 import axios from 'axios';
 import { API_BASE_URL, API_KEY } from '../config/env';
@@ -18,9 +18,12 @@ interface BookState {
   error: string | null;
   favoriteGenres: Record<string, number>;
   userNickname: string | null;
+  currentGenreIndex: number;
+  selectedGenres: string[];
   
   // Actions
-  initializeBooks: (selectedGenres?: string[], limit?: number) => Promise<void>;
+  initializeBooks: (selectedGenres?: string[]) => Promise<void>;
+  loadMoreBooks: () => Promise<void>;
   swipeBook: (liked: boolean) => void;
   generateRecommendations: (limit?: number) => Promise<void>;
   addToFavorites: (book: Book) => Promise<void>;
@@ -43,6 +46,8 @@ export const useBookStore = create<BookState>()(
       error: null,
       favoriteGenres: {},
       userNickname: null,
+      currentGenreIndex: 0,
+      selectedGenres: [],
 
       loadUserData: async () => {
         const { user } = useAuthStore.getState();
@@ -59,17 +64,31 @@ export const useBookStore = create<BookState>()(
               favoriteGenres: data.favoriteGenres || {},
               userNickname: data.nickname || null
             });
+
+            // Also store favorites in localStorage for offline access
+            localStorage.setItem('userFavorites', JSON.stringify(data.favorites || []));
+          } else {
+            // Try to load from localStorage if no Firestore data
+            const storedFavorites = localStorage.getItem('userFavorites');
+            if (storedFavorites) {
+              set({ favorites: JSON.parse(storedFavorites) });
+            }
           }
         } catch (error) {
           console.error('Error loading user data:', error);
+          // Try to load from localStorage on error
+          const storedFavorites = localStorage.getItem('userFavorites');
+          if (storedFavorites) {
+            set({ favorites: JSON.parse(storedFavorites) });
+          }
         }
       },
 
-      initializeBooks: async (selectedGenres, limit = 20) => {
-        set({ isLoading: true, error: null });
+      initializeBooks: async (selectedGenres = []) => {
+        set({ isLoading: true, error: null, selectedGenres, currentGenreIndex: 0 });
         try {
           const { swipedBooks } = get();
-          const books = await getInitialBookList(selectedGenres);
+          const books = await getInitialBookList([selectedGenres[0]]);
           
           // Filter out books that have been swiped in the last 30 days
           const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
@@ -88,29 +107,51 @@ export const useBookStore = create<BookState>()(
             !recentlySwipedIds.has(book.id)
           );
 
-          if (validBooks.length < limit) {
-            // If we don't have enough valid books, fetch more
-            const additionalBooks = await getInitialBookList(selectedGenres);
-            const newValidBooks = additionalBooks.filter(book => 
-              book.coverImages &&
-              book.coverImages.large &&
-              book.coverImages.medium &&
-              book.coverImages.small &&
-              !recentlySwipedIds.has(book.id)
-            );
-            validBooks.push(...newValidBooks);
-          }
+          set({ books: validBooks, currentBookIndex: 0, isLoading: false });
+        } catch (error) {
+          console.error('Error initializing books:', error);
+          set({ error: 'Failed to load books', isLoading: false });
+        }
+      },
+
+      loadMoreBooks: async () => {
+        const { selectedGenres, currentGenreIndex, books, swipedBooks } = get();
+        set({ isLoading: true, error: null });
+        
+        try {
+          // Try next genre if available
+          const nextGenreIndex = (currentGenreIndex + 1) % selectedGenres.length;
+          const currentGenre = selectedGenres[nextGenreIndex];
+          
+          const newBooks = await getInitialBookList([currentGenre]);
+          
+          // Filter out books that have been swiped in the last 30 days
+          const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+          const recentlySwipedIds = new Set(
+            swipedBooks
+              .filter(swipe => swipe.timestamp > thirtyDaysAgo)
+              .map(swipe => swipe.bookId)
+          );
+
+          // Filter and deduplicate books
+          const existingBookIds = new Set(books.map(book => book.id));
+          const validNewBooks = newBooks.filter(book => 
+            book.coverImages &&
+            book.coverImages.large &&
+            book.coverImages.medium &&
+            book.coverImages.small &&
+            !recentlySwipedIds.has(book.id) &&
+            !existingBookIds.has(book.id)
+          );
 
           set({ 
-            books: validBooks.slice(0, limit),
-            currentBookIndex: 0,
+            books: [...books, ...validNewBooks],
+            currentGenreIndex: nextGenreIndex,
             isLoading: false 
           });
-        } catch (error: any) {
-          set({ 
-            error: 'Failed to load books. Please try again later.', 
-            isLoading: false 
-          });
+        } catch (error) {
+          console.error('Error loading more books:', error);
+          set({ error: 'Failed to load more books', isLoading: false });
         }
       },
 
@@ -188,31 +229,49 @@ export const useBookStore = create<BookState>()(
 
       addToFavorites: async (book: Book) => {
         const { user } = useAuthStore.getState();
-        if (!user) return;
+        const { favorites } = get();
+        
+        // Update local state first for immediate feedback
+        const updatedFavorites = [...favorites, book];
+        set({ favorites: updatedFavorites });
+        
+        // Store in localStorage for offline access
+        localStorage.setItem('userFavorites', JSON.stringify(updatedFavorites));
 
-        try {
-          const userDocRef = doc(firestore, 'users', user.uid);
-          await updateDoc(userDocRef, {
-            favorites: arrayUnion(book)
-          });
-          set(state => ({ favorites: [...state.favorites, book] }));
-        } catch (error) {
-          console.error('Error adding to favorites:', error);
+        // If user is logged in, sync with Firestore
+        if (user) {
+          try {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            await updateDoc(userDocRef, {
+              favorites: arrayUnion(book)
+            });
+          } catch (error) {
+            console.error('Error syncing favorites to Firestore:', error);
+          }
         }
       },
 
       removeFromFavorites: async (bookId: string) => {
         const { user } = useAuthStore.getState();
-        if (!user) return;
+        const { favorites } = get();
+        
+        // Update local state first for immediate feedback
+        const updatedFavorites = favorites.filter(book => book.id !== bookId);
+        set({ favorites: updatedFavorites });
+        
+        // Update localStorage
+        localStorage.setItem('userFavorites', JSON.stringify(updatedFavorites));
 
-        try {
-          const userDocRef = doc(firestore, 'users', user.uid);
-          await updateDoc(userDocRef, {
-            favorites: arrayRemove(bookId)
-          });
-          set(state => ({ favorites: state.favorites.filter(book => book.id !== bookId) }));
-        } catch (error) {
-          console.error('Error removing from favorites:', error);
+        // If user is logged in, sync with Firestore
+        if (user) {
+          try {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            await updateDoc(userDocRef, {
+              favorites: updatedFavorites // Replace entire array to ensure sync
+            });
+          } catch (error) {
+            console.error('Error syncing favorites to Firestore:', error);
+          }
         }
       },
 

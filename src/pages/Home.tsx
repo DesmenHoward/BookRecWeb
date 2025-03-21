@@ -12,6 +12,7 @@ export default function Home() {
     books, 
     currentBookIndex, 
     swipeBook, 
+    loadMoreBooks,
     initializeBooks,
     isLoading,
     error 
@@ -34,6 +35,12 @@ export default function Home() {
       initializeBooks(genres);
     }
   }, []);
+
+  useEffect(() => {
+    if (books.length - currentBookIndex <= 5 && !isLoading) {
+      loadMoreBooks();
+    }
+  }, [currentBookIndex, books.length]);
 
   const handleGenreSelection = async (genres: string[]) => {
     localStorage.setItem('selectedGenres', JSON.stringify(genres));

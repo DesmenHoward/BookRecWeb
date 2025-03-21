@@ -92,7 +92,7 @@ function getCoverUrl(imageLinks?: { thumbnail?: string; smallThumbnail?: string 
   return `${defaultCover}&w=${size === 'small' ? 400 : size === 'medium' ? 600 : 800}&q=80`;
 }
 
-function convertGoogleBook(googleBook: GoogleBook): Book | null {
+export function convertGoogleBook(googleBook: GoogleBook): Book | null {
   try {
     if (!googleBook?.volumeInfo) return null;
 

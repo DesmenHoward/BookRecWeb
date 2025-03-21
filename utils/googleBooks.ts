@@ -147,7 +147,7 @@ export async function getInitialBookList(selectedGenres?: string[]): Promise<Boo
 }
 
 // Get book recommendations based on user preferences
-export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]> {
+export async function getBookRecommendations(likedBooks: Book[], genreWeights?: Record<string, number>): Promise<Book[]> {
   if (!likedBooks?.length || !API_KEY) {
     return [];
   }
@@ -157,11 +157,20 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
     const likedGenres = [...new Set(likedBooks.flatMap(book => book.genres))];
     const recommendations: Book[] = [];
     
-    // Fetch books by the same authors
+    // Sort genres by weight if provided
+    const sortedGenres = genreWeights 
+      ? likedGenres.sort((a, b) => (genreWeights[b] || 0) - (genreWeights[a] || 0))
+      : likedGenres;
+    
+    // Fetch books by the same authors, prioritizing weighted genres
     for (const author of likedAuthors) {
+      const genreQuery = sortedGenres
+        .map(genre => `subject:"${genre}"`)
+        .join(' OR ');
+        
       const response = await axios.get(`${API_BASE_URL}/volumes`, {
         params: {
-          q: `inauthor:"${author}" subject:(${likedGenres.join(' OR ')})`,
+          q: `inauthor:"${author}" (${genreQuery})`,
           maxResults: 10,
           langRestrict: 'en',
           orderBy: 'relevance',
@@ -180,8 +189,17 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
             !likedBooks.some(liked => liked.id === book.id) &&
             !recommendations.some(rec => rec.id === book.id) &&
             book.description.length > 100 &&
-            book.genres.some(g => likedGenres.includes(g))
+            book.genres.some(g => sortedGenres.includes(g))
           );
+        
+        // Sort books by genre weights if provided
+        if (genreWeights) {
+          authorBooks.sort((a, b) => {
+            const aWeight = Math.max(...a.genres.map(g => genreWeights[g] || 0));
+            const bWeight = Math.max(...b.genres.map(g => genreWeights[g] || 0));
+            return bWeight - aWeight;
+          });
+        }
         
         recommendations.push(...authorBooks);
       }
@@ -190,9 +208,9 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
       await new Promise(resolve => setTimeout(resolve, 250));
     }
     
-    // If we need more recommendations, fetch by genres
+    // If we need more recommendations, fetch by weighted genres
     if (recommendations.length < 20) {
-      for (const genre of likedGenres) {
+      for (const genre of sortedGenres) {
         const response = await axios.get(`${API_BASE_URL}/volumes`, {
           params: {
             q: `subject:"${genre}"`,
@@ -213,28 +231,32 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
               book !== null &&
               !likedBooks.some(liked => liked.id === book.id) &&
               !recommendations.some(rec => rec.id === book.id) &&
-              book.description.length > 100 &&
-              book.genres.includes(genre)
+              book.description.length > 100
             );
-          
+            
           recommendations.push(...genreBooks);
         }
         
-        // Rate limiting
+        if (recommendations.length >= 20) break;
         await new Promise(resolve => setTimeout(resolve, 250));
       }
     }
     
-    // Store recommendations
-    await BookStorage.storeBooks(recommendations);
-    
-    // Return shuffled, unique recommendations
-    return [...new Set(recommendations)]
-      .sort(() => Math.random() - 0.5)
+    // Return shuffled recommendations, maintaining genre weight order within groups
+    return recommendations
+      .sort((a, b) => {
+        if (genreWeights) {
+          const aWeight = Math.max(...a.genres.map(g => genreWeights[g] || 0));
+          const bWeight = Math.max(...b.genres.map(g => genreWeights[g] || 0));
+          if (aWeight !== bWeight) return bWeight - aWeight;
+        }
+        return Math.random() - 0.5;
+      })
       .slice(0, 20);
+      
   } catch (error: any) {
-    console.error('Error getting recommendations:', error.response?.data || error.message);
-    throw new Error('Failed to fetch book recommendations');
+    console.error('Error fetching recommendations:', error.response?.data || error.message);
+    return [];
   }
 }
 

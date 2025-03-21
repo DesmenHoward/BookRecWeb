@@ -15,7 +15,6 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
     username: '',
     bio: '',
     location: '',
-    website: '',
     socialLinks: {
       twitter: '',
       instagram: '',
@@ -31,7 +30,6 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
         username: profile.username,
         bio: profile.bio || '',
         location: profile.location || '',
-        website: profile.website || '',
         socialLinks: {
           twitter: profile.socialLinks?.twitter || '',
           instagram: profile.socialLinks?.instagram || '',
@@ -155,25 +153,12 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">
-                Website
-              </label>
-              <input
-                type="url"
-                name="website"
-                value={formData.website}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
-              />
-            </div>
-
             <div className="space-y-4">
               <h3 className="font-medium text-text">Social Links</h3>
               
               <div>
                 <label className="block text-sm text-text-light mb-1">
-                  Twitter
+                  X
                 </label>
                 <input
                   type="text"

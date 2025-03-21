@@ -12,3 +12,6 @@ export const env = {
     apiKey: 'AIzaSyD1uTQuJeLUvbj_3L7tN26Ch47gjSeq2Kw'
   }
 };
+
+export const API_BASE_URL = 'https://www.googleapis.com/books/v1';
+export const API_KEY = env.googleBooks.apiKey;

@@ -67,7 +67,7 @@ export default function ImageUploader({ isOpen, onClose, onUpload }: ImageUpload
       }
 
       // Upload to Firebase Storage with correct file name format
-      const fileName = `profile-pictures/${user.uid}-${Date.now()}.jpg`;
+      const fileName = `users/${user.uid}/profile/${Date.now()}.jpg`;
       const storageRef = ref(storage, fileName);
       
       await uploadBytes(storageRef, blob, {

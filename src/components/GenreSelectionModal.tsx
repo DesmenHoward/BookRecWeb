@@ -2,21 +2,49 @@ import { useState, useEffect } from 'react';
 import { BookOpen, Check } from 'lucide-react';
 
 const GENRES = [
+  // Fiction Categories
   'Fiction',
-  'Fantasy',
-  'Science Fiction',
-  'Mystery',
-  'Thriller',
-  'Romance',
-  'Historical Fiction',
+  'Contemporary Fiction',
+  'Classic Literature',
   'Literary Fiction',
+  'Historical Fiction',
+  'Historical Romance',
+  'Romance',
+  'Science Fiction',
+  'Fantasy',
+  'Urban Fantasy',
+  'Dystopian',
+  'Paranormal',
+  'Magical Realism',
   'Horror',
+  'Mystery',
+  'Crime Fiction',
+  'Thriller',
+  'Psychological Thriller',
+  'Adventure',
+  'Western',
+  'Satire',
+  'Steampunk',
+  'Alternate History',
   'Young Adult',
-  'Biography',
+  'Children\'s Fiction',
+  'Graphic Novels/Comics',
+  'Anthology/Short Stories',
+
+  // Non-Fiction Categories
   'Non-Fiction',
-  'Poetry',
+  'Biography',
+  'True Crime',
+  'Travel',
+  'Cookbooks',
+  'Art & Photography',
+  'Music',
+  'Sports',
+  'Health & Wellness',
   'Self-Help',
-  'Adventure'
+  'Religion & Spirituality',
+  'Poetry',
+  'Humor'
 ];
 
 interface GenreSelectionModalProps {

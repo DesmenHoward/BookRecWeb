@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { searchBooks, saveBookToStorage } from '../../googleBooksApi';
+import { searchBooks } from '../../googleBooksApi';
 import type { Book } from '../../googleBooksApi';
 import { useBookStore } from '../store/bookStore';
 import { Heart, Trash2 } from 'lucide-react';

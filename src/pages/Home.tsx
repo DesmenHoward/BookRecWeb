@@ -151,6 +151,11 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Instructions */}
+            <div className="text-center text-text-light text-sm mb-4">
+              Swipe right or tap the heart to like a book. Swipe left or tap X to skip.
+            </div>
+
             {/* Swipeable card container */}
             <div className="relative h-[600px] mb-8">
               {books.slice(currentBookIndex, currentBookIndex + 1).map(book => (
@@ -189,12 +194,6 @@ export default function Home() {
               >
                 <Heart size={30} />
               </button>
-            </div>
-
-            {/* Instructions */}
-            <div className="text-center text-text-light text-sm">
-              <p className="mb-2">Swipe right or tap the heart to like a book</p>
-              <p>Swipe left or tap X to skip</p>
             </div>
           </div>
         </>

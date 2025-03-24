@@ -92,6 +92,50 @@ function getCoverUrl(imageLinks?: { thumbnail?: string; smallThumbnail?: string 
   return `${defaultCover}&w=${size === 'small' ? 400 : size === 'medium' ? 600 : 800}&q=80`;
 }
 
+// Genre mapping for Google Books API
+const GENRE_SEARCH_TERMS: Record<string, string[]> = {
+  'Fiction': ['fiction'],
+  'Contemporary Fiction': ['contemporary fiction', 'modern fiction'],
+  'Classic Literature': ['classics', 'classic literature'],
+  'Literary Fiction': ['literary fiction'],
+  'Historical Fiction': ['historical fiction'],
+  'Historical Romance': ['historical romance'],
+  'Romance': ['romance'],
+  'Science Fiction': ['science fiction', 'sci-fi'],
+  'Fantasy': ['fantasy'],
+  'Urban Fantasy': ['urban fantasy'],
+  'Dystopian': ['dystopian', 'dystopia'],
+  'Paranormal': ['paranormal', 'supernatural'],
+  'Magical Realism': ['magical realism'],
+  'Horror': ['horror'],
+  'Mystery': ['mystery'],
+  'Crime Fiction': ['crime fiction', 'crime'],
+  'Thriller': ['thriller'],
+  'Psychological Thriller': ['psychological thriller'],
+  'Adventure': ['adventure'],
+  'Western': ['western'],
+  'Satire': ['satire'],
+  'Steampunk': ['steampunk'],
+  'Alternate History': ['alternate history', 'alternative history'],
+  'Young Adult': ['young adult', 'ya'],
+  'Children\'s Fiction': ['children\'s', 'juvenile fiction'],
+  'Graphic Novels/Comics': ['graphic novel', 'comics'],
+  'Anthology/Short Stories': ['anthology', 'short stories'],
+  'Non-Fiction': ['non-fiction', 'nonfiction'],
+  'Biography': ['biography', 'autobiography'],
+  'True Crime': ['true crime'],
+  'Travel': ['travel'],
+  'Cookbooks': ['cooking', 'cookbooks', 'food'],
+  'Art & Photography': ['art', 'photography'],
+  'Music': ['music'],
+  'Sports': ['sports'],
+  'Health & Wellness': ['health', 'wellness', 'fitness'],
+  'Self-Help': ['self-help'],
+  'Religion & Spirituality': ['religion', 'spirituality'],
+  'Poetry': ['poetry'],
+  'Humor': ['humor', 'comedy']
+};
+
 export function convertGoogleBook(googleBook: GoogleBook): Book | null {
   try {
     if (!googleBook?.volumeInfo) return null;
@@ -136,34 +180,50 @@ export function convertGoogleBook(googleBook: GoogleBook): Book | null {
 }
 
 async function fetchBooksForGenre(genre: string, maxResults: number = 40): Promise<Book[]> {
-  const response = await axios.get(`${API_BASE_URL}/volumes`, {
-    params: {
-      q: `subject:"${genre}"`,
-      maxResults,
-      langRestrict: 'en',
-      orderBy: 'relevance',
-      key: API_KEY,
-      fields: 'items(id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating))',
-      printType: 'books'
+  const searchTerms = GENRE_SEARCH_TERMS[genre] || [genre.toLowerCase()];
+  const allBooks: Book[] = [];
+
+  // Try each search term for the genre
+  for (const term of searchTerms) {
+    const response = await axios.get(`${API_BASE_URL}/volumes`, {
+      params: {
+        q: `subject:"${term}"`,
+        maxResults: Math.ceil(maxResults / searchTerms.length),
+        langRestrict: 'en',
+        orderBy: 'relevance',
+        key: API_KEY,
+        fields: 'items(id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating))',
+        printType: 'books'
+      }
+    });
+
+    if (response.data?.items) {
+      const books = response.data.items
+        .map(convertGoogleBook)
+        .filter((book: Book | null) => 
+          book !== null &&
+          book.description.length > 100 &&
+          (book.genres.some(g => 
+            g.toLowerCase().includes(term) || 
+            searchTerms.some(st => g.toLowerCase().includes(st))
+          ))
+        );
+
+      allBooks.push(...books);
     }
-  });
-
-  if (!response.data?.items) return [];
-
-  const books = response.data.items
-    .map(convertGoogleBook)
-    .filter((book: Book | null) => 
-      book !== null &&
-      book.description.length > 100 &&
-      book.genres.includes(genre)
-    );
-
-  // Store books with genre metadata
-  if (books.length > 0) {
-    await storage.storeBooks(books, genre);
   }
 
-  return books;
+  // Remove duplicates based on book ID
+  const uniqueBooks = Array.from(
+    new Map(allBooks.map(book => [book.id, book])).values()
+  );
+
+  // Store books with genre metadata
+  if (uniqueBooks.length > 0) {
+    await storage.storeBooks(uniqueBooks, genre);
+  }
+
+  return uniqueBooks.slice(0, maxResults);
 }
 
 export async function getInitialBookList(selectedGenres?: string[]): Promise<Book[]> {

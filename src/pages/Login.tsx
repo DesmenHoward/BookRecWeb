@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Mail, Eye, EyeOff } from 'lucide-react';
+import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
 
 export default function Login() {
   const { login, signUp, error: authError, clearError, isLoading, isAuthenticated } = useAuthStore();
@@ -11,6 +12,8 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -20,6 +23,11 @@ export default function Login() {
     e.preventDefault();
     setLocalError(null);
     clearError();
+
+    if (isForgotPassword) {
+      handleForgotPassword();
+      return;
+    }
 
     if (!email || !password) {
       setLocalError('Please enter both email and password');
@@ -37,6 +45,22 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setLocalError('Please enter your email address');
+      return;
+    }
+
+    try {
+      const auth = getAuth();
+      await sendPasswordResetEmail(auth, email);
+      setResetEmailSent(true);
+      setLocalError(null);
+    } catch (error: any) {
+      setLocalError(error.message || 'Failed to send reset email');
+    }
+  };
+
   const error = localError || authError;
 
   return (
@@ -47,10 +71,10 @@ export default function Login() {
             <img src="/favicon.PNG" alt="BookRec Logo" className="w-[240px] h-[240px] rounded-3xl" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-text">
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
+            {isForgotPassword ? 'Reset Password' : (isSignUp ? 'Create Account' : 'Welcome Back')}
           </h2>
           <p className="mt-2 text-text-light">
-            Discover your next favorite read
+            {isForgotPassword ? 'Enter your email to receive a reset link' : 'Discover your next favorite read'}
           </p>
         </div>
 
@@ -58,6 +82,11 @@ export default function Login() {
           {error && (
             <div className="bg-red-100 text-red-700 p-3 rounded-lg text-center">
               {error}
+            </div>
+          )}
+          {resetEmailSent && (
+            <div className="bg-green-100 text-green-700 p-3 rounded-lg text-center">
+              Password reset email sent! Please check your inbox.
             </div>
           )}
 
@@ -77,67 +106,85 @@ export default function Login() {
               <Mail className="absolute right-3 top-1/2 -translate-y-1/2 text-text-light" size={20} />
             </div>
 
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="peer w-full px-3 py-3 border rounded-lg focus:ring-1 focus:ring-accent focus:outline-none pt-6"
-                placeholder=" "
-                disabled={isLoading}
-              />
-              <label className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none transition-all duration-200 peer-focus:text-xs peer-focus:top-3.5 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:top-3.5">
-                Password
-              </label>
+            {!isForgotPassword && (
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="peer w-full px-3 py-3 border rounded-lg focus:ring-1 focus:ring-accent focus:outline-none pt-6"
+                  placeholder=" "
+                  disabled={isLoading}
+                />
+                <label className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none transition-all duration-200 peer-focus:text-xs peer-focus:top-3.5 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:top-3.5">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-light"
+                  disabled={isLoading}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            {!isForgotPassword ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPassword(true);
+                    setPassword('');
+                    clearError();
+                    setResetEmailSent(false);
+                  }}
+                  className="text-accent hover:text-accent-dark text-sm"
+                  disabled={isLoading}
+                >
+                  Forgot password?
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setEmail('');
+                    setPassword('');
+                    clearError();
+                  }}
+                  className="text-accent hover:text-accent-dark text-sm"
+                  disabled={isLoading}
+                >
+                  {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+                </button>
+              </>
+            ) : (
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-light"
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  clearError();
+                  setResetEmailSent(false);
+                }}
+                className="text-accent hover:text-accent-dark text-sm"
                 disabled={isLoading}
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                Back to Sign In
               </button>
-            </div>
+            )}
           </div>
 
           <button
             type="submit"
-            className="button w-full"
+            className="w-full py-3 px-4 bg-accent text-white rounded-lg hover:bg-accent-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent disabled:opacity-50"
             disabled={isLoading}
           >
-            {isLoading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Loading...
-              </span>
-            ) : (
-              isSignUp ? 'Sign Up' : 'Sign In'
-            )}
+            {isLoading ? 'Please wait...' : (isForgotPassword ? 'Send Reset Link' : (isSignUp ? 'Sign Up' : 'Sign In'))}
           </button>
-
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setEmail('');
-                setPassword('');
-                clearError();
-              }}
-              className="text-accent hover:underline"
-              disabled={isLoading}
-            >
-              {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-            </button>
-          </div>
         </form>
-
-        <p className="text-center text-sm text-text-light">
-          By continuing, you agree to our Terms of Service and Privacy Policy
-        </p>
       </div>
     </div>
   );

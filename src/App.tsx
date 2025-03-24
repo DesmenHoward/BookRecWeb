@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import ForYou from './pages/ForYou';
 import Profile from './pages/Profile';
 import Favorites from './pages/Favorites';
+import Reviews from './pages/Reviews';
 import NotFound from './pages/NotFound';
 
 function App() {
@@ -23,8 +24,9 @@ function App() {
         }>
           <Route index element={<Home />} />
           <Route path="for-you" element={<ForYou />} />
-          <Route path="profile" element={<Profile />} />
           <Route path="favorites" element={<Favorites />} />
+          <Route path="reviews" element={<Reviews />} />
+          <Route path="profile" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

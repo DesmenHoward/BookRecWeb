@@ -2,18 +2,33 @@ import { useState, useEffect } from 'react';
 import { searchBooks } from '../../googleBooksApi';
 import type { Book } from '../../googleBooksApi';
 import { useBookStore } from '../store/bookStore';
-import { Heart, Trash2 } from 'lucide-react';
+import { Heart, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Favorites() {
   const { favorites, removeFromFavorites, addToFavorites, loadUserData } = useBookStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedBooks, setExpandedBooks] = useState<Set<string>>(new Set());
 
   // Load favorites when component mounts
   useEffect(() => {
     loadUserData();
   }, []);
+
+  const toggleDescription = (bookId: string) => {
+    setExpandedBooks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(bookId)) {
+        newSet.delete(bookId);
+      } else {
+        newSet.add(bookId);
+      }
+      return newSet;
+    });
+  };
+
+  const isDescriptionExpanded = (bookId: string) => expandedBooks.has(bookId);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -91,7 +106,26 @@ export default function Favorites() {
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-lg mb-2">{book.volumeInfo.title}</h3>
-                  <p className="text-gray-600 text-sm">{book.volumeInfo.authors?.join(', ')}</p>
+                  <p className="text-gray-600 text-sm mb-2">{book.volumeInfo.authors?.join(', ')}</p>
+                  {book.volumeInfo.description && (
+                    <div>
+                      <p className="text-gray-700 text-sm">
+                        {isDescriptionExpanded(book.id) 
+                          ? book.volumeInfo.description
+                          : book.volumeInfo.description.slice(0, 150) + '...'}
+                      </p>
+                      <button
+                        onClick={() => toggleDescription(book.id)}
+                        className="text-accent hover:text-accent/80 text-sm mt-1 flex items-center gap-1"
+                      >
+                        {isDescriptionExpanded(book.id) ? (
+                          <>Show Less <ChevronUp size={16} /></>
+                        ) : (
+                          <>Read More <ChevronDown size={16} /></>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -124,7 +158,26 @@ export default function Favorites() {
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-lg mb-2">{book.title}</h3>
-                  <p className="text-gray-600 text-sm">{book.author}</p>
+                  <p className="text-gray-600 text-sm mb-2">{book.author}</p>
+                  {book.description && (
+                    <div>
+                      <p className="text-gray-700 text-sm">
+                        {isDescriptionExpanded(book.id) 
+                          ? book.description
+                          : book.description.slice(0, 150) + '...'}
+                      </p>
+                      <button
+                        onClick={() => toggleDescription(book.id)}
+                        className="text-accent hover:text-accent/80 text-sm mt-1 flex items-center gap-1"
+                      >
+                        {isDescriptionExpanded(book.id) ? (
+                          <>Show Less <ChevronUp size={16} /></>
+                        ) : (
+                          <>Read More <ChevronDown size={16} /></>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

@@ -88,7 +88,11 @@ export const useBookStore = create<BookState>()(
         set({ isLoading: true, error: null, selectedGenres, currentGenreIndex: 0 });
         try {
           const { swipedBooks } = get();
-          const books = await getInitialBookList([selectedGenres[0]]);
+          
+          // Load books from all selected genres
+          const booksPromises = selectedGenres.map(genre => getInitialBookList([genre]));
+          const booksArrays = await Promise.all(booksPromises);
+          const allBooks = booksArrays.flat();
           
           // Filter out books that have been swiped in the last 30 days
           const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
@@ -99,7 +103,7 @@ export const useBookStore = create<BookState>()(
           );
 
           // Ensure all books have valid cover images and haven't been recently swiped
-          const validBooks = books.filter(book => 
+          const validBooks = allBooks.filter(book => 
             book.coverImages &&
             book.coverImages.large &&
             book.coverImages.medium &&
@@ -107,7 +111,13 @@ export const useBookStore = create<BookState>()(
             !recentlySwipedIds.has(book.id)
           );
 
-          set({ books: validBooks, currentBookIndex: 0, isLoading: false });
+          // Shuffle the books to mix genres
+          const shuffledBooks = validBooks
+            .map(value => ({ value, sort: Math.random() }))
+            .sort((a, b) => a.sort - b.sort)
+            .map(({ value }) => value);
+
+          set({ books: shuffledBooks, currentBookIndex: 0, isLoading: false });
         } catch (error) {
           console.error('Error initializing books:', error);
           set({ error: 'Failed to load books', isLoading: false });

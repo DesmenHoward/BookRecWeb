@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Book } from '../types/book';
 import { getInitialBookList, getBookRecommendations, convertGoogleBook } from '../utils/googleBooks';
 import { firestore } from '../firebase/config';
-import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc, arrayRemove } from 'firebase/firestore';
 import { useAuthStore } from './authStore';
 import axios from 'axios';
 import { API_BASE_URL, API_KEY } from '../config/env';
@@ -51,36 +51,46 @@ export const useBookStore = create<BookState>()(
 
       loadUserData: async () => {
         const { user } = useAuthStore.getState();
-        if (!user) return;
+        console.log('Loading user data...', { user });
 
         try {
-          const userDocRef = doc(firestore, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
+          set({ isLoading: true });
           
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            set({
-              favorites: data.favorites || [],
-              favoriteGenres: data.favoriteGenres || {},
-              userNickname: data.nickname || null
-            });
+          // Always try to load from localStorage first
+          const storedFavorites = localStorage.getItem('userFavorites');
+          if (storedFavorites) {
+            const parsedFavorites = JSON.parse(storedFavorites);
+            console.log('Loaded favorites from localStorage:', parsedFavorites);
+            set({ favorites: parsedFavorites });
+          }
 
-            // Also store favorites in localStorage for offline access
-            localStorage.setItem('userFavorites', JSON.stringify(data.favorites || []));
-          } else {
-            // Try to load from localStorage if no Firestore data
-            const storedFavorites = localStorage.getItem('userFavorites');
-            if (storedFavorites) {
-              set({ favorites: JSON.parse(storedFavorites) });
+          // If user is logged in, sync with Firestore
+          if (user) {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
+            
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              console.log('Loaded data from Firestore:', data);
+              
+              // Only update if we have favorites in Firestore
+              if (Array.isArray(data.favorites) && data.favorites.length > 0) {
+                set({
+                  favorites: data.favorites,
+                  favoriteGenres: data.favoriteGenres || {},
+                  userNickname: data.nickname || null
+                });
+                
+                // Update localStorage with Firestore data
+                localStorage.setItem('userFavorites', JSON.stringify(data.favorites));
+              }
             }
           }
         } catch (error) {
           console.error('Error loading user data:', error);
-          // Try to load from localStorage on error
-          const storedFavorites = localStorage.getItem('userFavorites');
-          if (storedFavorites) {
-            set({ favorites: JSON.parse(storedFavorites) });
-          }
+          set({ error: 'Failed to load user data' });
+        } finally {
+          set({ isLoading: false });
         }
       },
 
@@ -241,14 +251,15 @@ export const useBookStore = create<BookState>()(
         const { user } = useAuthStore.getState();
         const { favorites } = get();
         
-        // Update local state first for immediate feedback
+        // Update local state first
         const updatedFavorites = [...favorites, book];
+        console.log('Adding to favorites:', { book, updatedFavorites });
         set({ favorites: updatedFavorites });
         
-        // Store in localStorage for offline access
+        // Update localStorage
         localStorage.setItem('userFavorites', JSON.stringify(updatedFavorites));
 
-        // If user is logged in, sync with Firestore
+        // Sync with Firestore if logged in
         if (user) {
           try {
             const userDocRef = doc(firestore, 'users', user.uid);
@@ -265,20 +276,24 @@ export const useBookStore = create<BookState>()(
         const { user } = useAuthStore.getState();
         const { favorites } = get();
         
-        // Update local state first for immediate feedback
+        // Update local state
         const updatedFavorites = favorites.filter(book => book.id !== bookId);
+        console.log('Removing from favorites:', { bookId, updatedFavorites });
         set({ favorites: updatedFavorites });
         
         // Update localStorage
         localStorage.setItem('userFavorites', JSON.stringify(updatedFavorites));
 
-        // If user is logged in, sync with Firestore
+        // Sync with Firestore if logged in
         if (user) {
           try {
             const userDocRef = doc(firestore, 'users', user.uid);
-            await updateDoc(userDocRef, {
-              favorites: updatedFavorites // Replace entire array to ensure sync
-            });
+            const bookToRemove = favorites.find(book => book.id === bookId);
+            if (bookToRemove) {
+              await updateDoc(userDocRef, {
+                favorites: arrayRemove(bookToRemove)
+              });
+            }
           } catch (error) {
             console.error('Error syncing favorites to Firestore:', error);
           }
@@ -294,7 +309,9 @@ export const useBookStore = create<BookState>()(
           
           // Update recommendations with new status
           set(state => ({
-            recommendations: state.recommendations.map(book =>
+            recommendations: state.recommendations.filter(book => 
+              status === 'not-interested' ? book.id !== bookId : true
+            ).map(book =>
               book.id === bookId ? { ...book, status } : book
             )
           }));
@@ -310,11 +327,6 @@ export const useBookStore = create<BookState>()(
             if (book && !get().favorites.some(f => f.id === bookId)) {
               await get().addToFavorites(book);
             }
-          }
-
-          // Regenerate recommendations if needed
-          if (status === 'not-interested') {
-            await get().generateRecommendations(5);
           }
         } catch (error) {
           console.error('Error updating book status:', error);

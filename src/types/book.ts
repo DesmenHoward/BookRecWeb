@@ -19,6 +19,10 @@ export interface GoogleBook {
     language: string;
     previewLink: string;
     infoLink: string;
+    industryIdentifiers?: Array<{
+      type: string;
+      identifier: string;
+    }>;
   };
 }
 
@@ -37,4 +41,7 @@ export interface Book {
   publishedYear: number;
   rating?: number;
   status?: 'read' | 'already-read' | 'not-interested' | null;
+  isbn?: string;      // ISBN-13 or ISBN-10
+  isbn13?: string;    // ISBN-13 specifically
+  isbn10?: string;    // ISBN-10 specifically
 }

@@ -153,12 +153,25 @@ export function convertGoogleBook(googleBook: GoogleBook): Book | null {
     }
 
     // Get cover URLs for different sizes
-    const defaultCover = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-1.2.1&auto=format&fit=crop';
     const coverImages = {
       small: getCoverUrl(volumeInfo.imageLinks, 'small'),
       medium: getCoverUrl(volumeInfo.imageLinks, 'medium'),
       large: getCoverUrl(volumeInfo.imageLinks, 'large')
     };
+
+    // Extract ISBNs from industry identifiers
+    let isbn13, isbn10, isbn;
+    if (volumeInfo.industryIdentifiers) {
+      for (const identifier of volumeInfo.industryIdentifiers) {
+        if (identifier.type === 'ISBN_13') {
+          isbn13 = identifier.identifier;
+          isbn = isbn13; // Prefer ISBN-13 as the general ISBN
+        } else if (identifier.type === 'ISBN_10') {
+          isbn10 = identifier.identifier;
+          if (!isbn) isbn = isbn10; // Use ISBN-10 if ISBN-13 not available
+        }
+      }
+    }
 
     return {
       id: googleBook.id,
@@ -171,7 +184,10 @@ export function convertGoogleBook(googleBook: GoogleBook): Book | null {
       publishedYear: volumeInfo.publishedDate ? 
         new Date(volumeInfo.publishedDate).getFullYear() : 
         new Date().getFullYear(),
-      rating: volumeInfo.averageRating || 0
+      rating: volumeInfo.averageRating || 0,
+      isbn,
+      isbn13,
+      isbn10
     };
   } catch (error) {
     console.error('Error converting Google Book:', error);

@@ -8,6 +8,7 @@ import { Edit } from 'lucide-react';
 import LoadingIndicator from '../components/LoadingIndicator';
 import EditProfileModal from '../components/EditProfileModal';
 import { Book } from '../types/book';
+import ShopButton from '../components/ShopButton';
 
 export default function Profile() {
   const { userId } = useParams();
@@ -127,11 +128,17 @@ export default function Profile() {
               <h3 className="font-medium text-text mt-2">{book.title}</h3>
               <p className="text-text-light">by {book.author}</p>
               <p className="text-text-light mt-2">{book.description.slice(0, 100)}...</p>
-              {isOwnProfile && (
-                <button className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" onClick={() => setSelectedBook(book)}>
-                  Read More
-                </button>
-              )}
+              <div className="flex flex-col w-full gap-2 mt-2">
+                {isOwnProfile && (
+                  <button 
+                    className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" 
+                    onClick={() => setSelectedBook(book)}
+                  >
+                    Read More
+                  </button>
+                )}
+                <ShopButton book={book} className="w-full" />
+              </div>
             </div>
           ))}
         </div>

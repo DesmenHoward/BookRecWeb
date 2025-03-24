@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useSprings, animated } from '@react-spring/web';
 import { useDrag } from '@use-gesture/react';
 import { Book } from '../types/book';
-import { Heart, X } from 'lucide-react';
 import BookDescriptionModal from './BookDescriptionModal';
+import ShopButton from './ShopButton';
 
 interface SwipeableBookCardProps {
   book: Book;
@@ -13,7 +13,7 @@ interface SwipeableBookCardProps {
 export default function SwipeableBookCard({ book, onSwipe }: SwipeableBookCardProps) {
   const [gone] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
-  const [props, api] = useSprings(1, i => ({
+  const [props, api] = useSprings(1, () => ({
     x: 0,
     y: 0,
     rotation: 0,
@@ -25,10 +25,10 @@ export default function SwipeableBookCard({ book, onSwipe }: SwipeableBookCardPr
     down, 
     movement: [mx], 
     direction: [xDir], 
-    velocity,
+    velocity: [vx],
     cancel 
   }) => {
-    const trigger = velocity > 0.2;
+    const trigger = Math.abs(vx) > 0.2;
     const dir = xDir < 0 ? -1 : 1;
 
     if (!down && trigger) {
@@ -39,7 +39,7 @@ export default function SwipeableBookCard({ book, onSwipe }: SwipeableBookCardPr
     api.start(() => {
       const isGone = !down && trigger;
       const x = isGone ? (200 + window.innerWidth) * dir : down ? mx : 0;
-      const rotation = mx / 100 + (isGone ? dir * 10 * velocity : 0);
+      const rotation = (mx as number) / 100 + (isGone ? dir * 10 * vx : 0);
       const scale = down ? 1.1 : 1;
       return {
         x,
@@ -104,16 +104,20 @@ export default function SwipeableBookCard({ book, onSwipe }: SwipeableBookCardPr
                 ))}
               </div>
               
-              <div>
+              <div className="mb-4">
                 <p className="text-sm line-clamp-3 text-white/90 mb-2">
                   {book.description}
                 </p>
                 <button
                   onClick={() => setShowDescription(true)}
-                  className="text-sm text-accent underline hover:text-accent/80 transition-colors"
+                  className="text-sm text-white/80 hover:text-white transition-colors"
                 >
                   Read More
                 </button>
+              </div>
+
+              <div className="flex justify-center">
+                <ShopButton book={book} variant="light" />
               </div>
             </div>
           </div>

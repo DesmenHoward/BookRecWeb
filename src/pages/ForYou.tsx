@@ -4,6 +4,7 @@ import { Heart, BookOpen, X } from 'lucide-react';
 import LoadingIndicator from '../components/LoadingIndicator';
 import EmptyState from '../components/EmptyState';
 import BookDescriptionModal from '../components/BookDescriptionModal';
+import ShopButton from '../components/ShopButton';
 
 export default function ForYou() {
   const { 
@@ -98,6 +99,8 @@ export default function ForYou() {
               </div>
 
               <div className="flex flex-col gap-2">
+                <ShopButton book={book} className="w-full" />
+                
                 <button
                   onClick={() => updateBookStatus(book.id, 'read')}
                   className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors ${

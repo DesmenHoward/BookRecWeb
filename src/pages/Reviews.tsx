@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useBookStore } from '../store/bookStore';
 import { useReviewStore } from '../store/reviewStore';
 import { useAuthStore } from '../store/authStore';
@@ -19,6 +20,11 @@ export default function Reviews() {
   const { reviews, allUserReviews, getBookReviews, getUserReviews, addReview, updateReview, deleteReview, editingReviewId, setEditingReviewId, isLoading } = useReviewStore();
   const { user } = useAuthStore();
   const { profile, initializeProfile } = useUserProfileStore();
+  const navigate = useNavigate();
+
+  const handleProfileClick = (userId: string) => {
+    navigate(`/profile/${userId}`);
+  };
 
   // Load user's reviews and profile when component mounts or user changes
   useEffect(() => {
@@ -134,7 +140,12 @@ export default function Reviews() {
                       <h3 className="font-semibold text-text">{review.bookTitle}</h3>
                       <div className="text-text-light text-sm">
                         <span>{new Date(review.createdAt).toLocaleDateString()}</span>
-                        <span className="ml-2">By: {review.userName}</span>
+                        <span className="ml-2">By: <button 
+                          onClick={() => handleProfileClick(review.userId)}
+                          className="text-accent hover:underline focus:outline-none"
+                        >
+                          {review.userName}
+                        </button></span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -344,7 +355,12 @@ export default function Reviews() {
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <div className="text-text-light">
-                              <span className="font-medium text-text">By: {review.userName}</span>
+                              <span>By: <button 
+                                onClick={() => handleProfileClick(review.userId)}
+                                className="text-accent hover:underline focus:outline-none"
+                              >
+                                {review.userName}
+                              </button></span>
                               <span className="text-sm ml-2">
                                 {new Date(review.createdAt).toLocaleDateString()}
                               </span>

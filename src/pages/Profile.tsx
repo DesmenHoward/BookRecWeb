@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useUserProfileStore } from '../store/userProfileStore';
 import { useBookStore } from '../store/bookStore';
 import { useReviewStore } from '../store/reviewStore';
@@ -9,6 +10,7 @@ import EditProfileModal from '../components/EditProfileModal';
 import { Book } from '../types/book';
 
 export default function Profile() {
+  const { userId } = useParams();
   const { profile, initializeProfile, isLoading } = useUserProfileStore();
   const { favorites, userNickname, addToFavorites, saveBookToStorage, searchBooks } = useBookStore();
   const { allUserReviews, getUserReviews, updateReview, deleteReview, editingReviewId, setEditingReviewId } = useReviewStore();
@@ -22,14 +24,23 @@ export default function Profile() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
   useEffect(() => {
-    initializeProfile();
-  }, []);
-
-  useEffect(() => {
-    if (user?.uid) {
+    if (userId) {
+      // If viewing another user's profile
+      getUserReviews(userId);
+    } else if (user?.uid) {
+      // If viewing own profile
+      initializeProfile();
       getUserReviews(user.uid);
     }
-  }, [user?.uid, getUserReviews]);
+  }, [userId, user?.uid, initializeProfile, getUserReviews]);
+
+  if (isLoading || !profile) {
+    return <LoadingIndicator message="Loading profile..." />;
+  }
+
+  const isOwnProfile = !userId || userId === user?.uid;
+
+  const displayedReviews = showAllReviews ? allUserReviews : allUserReviews.slice(0, 3);
 
   const handleSearch = async () => {
     const results = await searchBooks(searchQuery);
@@ -47,12 +58,6 @@ export default function Profile() {
     }
   };
 
-  if (isLoading || !profile) {
-    return <LoadingIndicator message="Loading profile..." />;
-  }
-
-  const displayedReviews = showAllReviews ? allUserReviews : allUserReviews.slice(0, 3);
-
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <div className="bg-surface rounded-xl p-6 mb-8">
@@ -67,7 +72,7 @@ export default function Profile() {
             <div>
               <h1 className="text-2xl font-bold text-text">{profile.displayName}</h1>
               <p className="text-text-light">@{profile.username}</p>
-              {userNickname && (
+              {userNickname && isOwnProfile && (
                 <span className="inline-block mt-2 px-3 py-1 bg-accent/10 text-accent rounded-full text-sm">
                   {userNickname}
                 </span>
@@ -75,13 +80,15 @@ export default function Profile() {
             </div>
           </div>
 
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-          >
-            <Edit size={20} />
-            Edit Profile
-          </button>
+          {isOwnProfile && (
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+            >
+              <Edit size={20} />
+              Edit Profile
+            </button>
+          )}
         </div>
 
         {profile.bio && (
@@ -120,9 +127,11 @@ export default function Profile() {
               <h3 className="font-medium text-text mt-2">{book.title}</h3>
               <p className="text-text-light">by {book.author}</p>
               <p className="text-text-light mt-2">{book.description.slice(0, 100)}...</p>
-              <button className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" onClick={() => setSelectedBook(book)}>
-                Read More
-              </button>
+              {isOwnProfile && (
+                <button className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" onClick={() => setSelectedBook(book)}>
+                  Read More
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -132,9 +141,11 @@ export default function Profile() {
               {showAllFavorites ? 'See Less' : 'See All'}
             </button>
           )}
-          <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" onClick={() => setShowSearchModal(true)}>
-            Add Book
-          </button>
+          {isOwnProfile && (
+            <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" onClick={() => setShowSearchModal(true)}>
+              Add Book
+            </button>
+          )}
         </div>
       </div>
 
@@ -161,7 +172,7 @@ export default function Profile() {
                           </span>
                         ))}
                       </div>
-                      {user?.uid === review.userId && (
+                      {isOwnProfile && (
                         <div className="flex gap-2">
                           {editingReviewId === review.id ? (
                             <button
@@ -302,10 +313,12 @@ export default function Profile() {
         </div>
       )}
 
-      <EditProfileModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-      />
+      {isOwnProfile && (
+        <EditProfileModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </div>
   );
 }

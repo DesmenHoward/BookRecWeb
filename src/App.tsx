@@ -27,6 +27,7 @@ function App() {
           <Route path="favorites" element={<Favorites />} />
           <Route path="reviews" element={<Reviews />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="profile/:userId" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

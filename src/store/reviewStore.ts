@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { firestore } from '../firebase/config';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, Timestamp, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 
 interface Review {
   id?: string;
@@ -45,11 +45,28 @@ export const useReviewStore = create<ReviewState>()((set, get) => ({
       const q = query(reviewsRef, where('bookId', '==', bookId));
       const querySnapshot = await getDocs(q);
       
+      // Fetch all unique user profiles for the reviews
+      const userIds = [...new Set(querySnapshot.docs.map(doc => doc.data().userId))];
+      const userProfiles = await Promise.all(
+        userIds.map(async (userId) => {
+          const userDocRef = doc(firestore, 'users', userId);
+          const userDoc = await getDoc(userDocRef);
+          return { 
+            userId, 
+            displayName: userDoc.exists() ? userDoc.data()?.displayName || "Anonymous" : "Anonymous" 
+          };
+        })
+      );
+      
       const reviews = querySnapshot.docs.map(doc => {
         const data = doc.data();
+        // Find the matching user profile and use their current display name
+        const userProfile = userProfiles.find(profile => profile.userId === data.userId);
         return {
           id: doc.id,
           ...data,
+          // Always use the latest display name from the profile
+          userName: userProfile?.displayName || "Anonymous",
           createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
           updatedAt: (data.updatedAt as Timestamp)?.toDate() || undefined
         };
@@ -73,11 +90,19 @@ export const useReviewStore = create<ReviewState>()((set, get) => ({
       const q = query(reviewsRef, where('userId', '==', userId));
       const querySnapshot = await getDocs(q);
       
+      // Get the user's profile to ensure we have the latest display name
+      const userDocRef = doc(firestore, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      const userData = userDoc.exists() ? userDoc.data() : null;
+      const displayName = userData?.displayName || "Anonymous";
+      
       const reviews = querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
           ...data,
+          // Always use the latest display name from the profile
+          userName: displayName,
           createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
           updatedAt: (data.updatedAt as Timestamp)?.toDate() || undefined
         };

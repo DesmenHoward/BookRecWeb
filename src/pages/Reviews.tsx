@@ -16,7 +16,7 @@ export default function Reviews() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { searchBooks } = useBookStore();
-  const { reviews, allUserReviews, getBookReviews, getUserReviews, addReview, isLoading } = useReviewStore();
+  const { reviews, allUserReviews, getBookReviews, getUserReviews, addReview, updateReview, deleteReview, editingReviewId, setEditingReviewId, isLoading } = useReviewStore();
   const { user } = useAuthStore();
   const { profile, initializeProfile } = useUserProfileStore();
 
@@ -64,14 +64,20 @@ export default function Reviews() {
     setError(null);
     setIsSubmitting(true);
     try {
+      // Ensure we have a display name from the profile
+      const displayName = profile.displayName || "Anonymous";
+      
       await addReview({
         bookId: selectedBook.id,
         bookTitle: selectedBook.title,
         userId: user.uid,
-        userName: profile.displayName || profile.username || user.displayName || user.uid,
+        userName: displayName, // Use profile's display name
         rating,
         text: reviewText.trim()
       });
+      
+      // Refresh the reviews after adding
+      await getBookReviews(selectedBook.id);
       
       // Reset form
       setRating(0);
@@ -126,24 +132,100 @@ export default function Reviews() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h3 className="font-semibold text-text">{review.bookTitle}</h3>
-                      <span className="text-text-light text-sm">
-                        {new Date(review.createdAt).toLocaleDateString()}
-                      </span>
+                      <div className="text-text-light text-sm">
+                        <span>{new Date(review.createdAt).toLocaleDateString()}</span>
+                        <span className="ml-2">By: {review.userName}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <span
-                          key={i}
-                          className={`text-lg ${
-                            i < review.rating ? 'text-yellow-400' : 'text-gray-300'
-                          }`}
-                        >
-                          ★
-                        </span>
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <span
+                            key={i}
+                            className={`text-lg ${
+                              i < review.rating ? 'text-yellow-400' : 'text-gray-300'
+                            }`}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      {user?.uid === review.userId && (
+                        <div className="flex gap-2">
+                          {editingReviewId === review.id ? (
+                            <button
+                              onClick={async () => {
+                                if (review.id) {
+                                  await updateReview(review.id, {
+                                    rating: review.rating,
+                                    text: review.text
+                                  });
+                                  setEditingReviewId(null);
+                                }
+                              }}
+                              className="text-sm px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                            >
+                              Save
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setEditingReviewId(review.id || null)}
+                              className="text-sm px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          <button
+                            onClick={async () => {
+                              if (review.id && window.confirm('Are you sure you want to delete this review?')) {
+                                await deleteReview(review.id, review.bookId, user.uid);
+                                await getUserReviews(user.uid);
+                              }
+                            }}
+                            className="text-sm px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <p className="mt-2">{review.text}</p>
+                  {editingReviewId === review.id ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-text-light">Rating:</label>
+                        <select
+                          value={review.rating}
+                          onChange={(e) => {
+                            const updatedReviews = allUserReviews.map((r) =>
+                              r.id === review.id ? { ...r, rating: Number(e.target.value) } : r
+                            );
+                            useReviewStore.setState({ allUserReviews: updatedReviews });
+                          }}
+                          className="border rounded p-1"
+                        >
+                          {[1, 2, 3, 4, 5].map((rating) => (
+                            <option key={rating} value={rating}>
+                              {rating}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <textarea
+                        value={review.text}
+                        onChange={(e) => {
+                          const updatedReviews = allUserReviews.map((r) =>
+                            r.id === review.id ? { ...r, text: e.target.value } : r
+                          );
+                          useReviewStore.setState({ allUserReviews: updatedReviews });
+                        }}
+                        className="w-full p-2 border rounded"
+                        rows={3}
+                      />
+                    </div>
+                  ) : (
+                    <p className="mt-2">{review.text}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -261,10 +343,12 @@ export default function Reviews() {
                       <div key={review.id} className="bg-white p-4 rounded-lg shadow-sm">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <span className="font-medium text-text">{review.userName}</span>
-                            <span className="text-text-light text-sm ml-2">
-                              {new Date(review.createdAt).toLocaleDateString()}
-                            </span>
+                            <div className="text-text-light">
+                              <span className="font-medium text-text">By: {review.userName}</span>
+                              <span className="text-sm ml-2">
+                                {new Date(review.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
                           </div>
                           <div className="flex items-center">
                             {[...Array(5)].map((_, i) => (

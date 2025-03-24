@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useBookStore } from '../store/bookStore';
-import { Heart } from 'lucide-react';
+import { Heart, Trash2 } from 'lucide-react';
 import EmptyState from '../components/EmptyState';
 import BookDescriptionModal from '../components/BookDescriptionModal';
+import ShopButton from '../components/ShopButton';
 import type { Book } from '../types/book';
 
 export default function Favorites() {
-  const { favorites, searchBooks, addToFavorites, loadUserData } = useBookStore();
+  const { favorites, searchBooks, addToFavorites, removeFromFavorites, loadUserData } = useBookStore();
   const [showAll, setShowAll] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
   const [selectedBook, setSelectedBook] = useState<{
@@ -143,6 +144,7 @@ export default function Favorites() {
                 });
                 setShowDescription(true);
               }}
+              onRemove={() => removeFromFavorites(book.id)}
             />
           ))}
         </div>
@@ -215,15 +217,16 @@ function SearchResultCard({ book, onAdd }: SearchResultCardProps) {
 interface FavoriteCardProps {
   book: Book;
   onShowDescription: () => void;
+  onRemove: () => void;
 }
 
-function FavoriteCard({ book, onShowDescription }: FavoriteCardProps) {
+function FavoriteCard({ book, onShowDescription, onRemove }: FavoriteCardProps) {
   return (
-    <div 
-      className="bg-white rounded-xl shadow-lg overflow-hidden cursor-pointer transform hover:scale-[1.02] transition-transform"
-      onClick={onShowDescription}
-    >
-      <div className="relative h-64">
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div 
+        className="relative h-64 cursor-pointer"
+        onClick={onShowDescription}
+      >
         <img 
           src={book.coverUrl} 
           alt={book.title}
@@ -235,6 +238,21 @@ function FavoriteCard({ book, onShowDescription }: FavoriteCardProps) {
           <h3 className="text-lg font-semibold text-white mb-1">{book.title}</h3>
           <p className="text-white/80">by {book.author}</p>
         </div>
+      </div>
+
+      <div className="p-4 flex justify-center items-center gap-2">
+        <ShopButton book={book} />
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-2"
+          title="Remove from favorites"
+        >
+          <Trash2 className="w-4 h-4" />
+          Remove
+        </button>
       </div>
     </div>
   );

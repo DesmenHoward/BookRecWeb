@@ -13,6 +13,7 @@ interface BookState {
   currentBookIndex: number;
   swipedBooks: { bookId: string; liked: boolean; timestamp: number }[];
   favorites: Book[];
+  topThree: Book[];
   recommendations: Book[];
   isLoading: boolean;
   error: string | null;
@@ -28,6 +29,7 @@ interface BookState {
   generateRecommendations: (limit?: number) => Promise<void>;
   addToFavorites: (book: Book) => Promise<void>;
   removeFromFavorites: (bookId: string) => Promise<void>;
+  updateTopThree: (books: Book[]) => Promise<void>;
   updateBookStatus: (bookId: string, status: 'read' | 'already-read' | 'not-interested' | null) => Promise<void>;
   loadUserData: () => Promise<void>;
   searchBooks: (query: string) => Promise<Book[]>;
@@ -41,6 +43,7 @@ export const useBookStore = create<BookState>()(
       currentBookIndex: 0,
       swipedBooks: [],
       favorites: [],
+      topThree: [],
       recommendations: [],
       isLoading: false,
       error: null,
@@ -58,10 +61,30 @@ export const useBookStore = create<BookState>()(
           
           // Always try to load from localStorage first
           const storedFavorites = localStorage.getItem('userFavorites');
+          const storedTopThree = localStorage.getItem('userTopThree');
+          
           if (storedFavorites) {
-            const parsedFavorites = JSON.parse(storedFavorites);
-            console.log('Loaded favorites from localStorage:', parsedFavorites);
-            set({ favorites: parsedFavorites });
+            try {
+              const parsedFavorites = JSON.parse(storedFavorites);
+              console.log('Loaded favorites from localStorage:', parsedFavorites);
+              set({ favorites: parsedFavorites });
+            } catch (e) {
+              console.error('Error parsing stored favorites:', e);
+            }
+          }
+
+          if (storedTopThree) {
+            try {
+              const parsedTopThree = JSON.parse(storedTopThree);
+              console.log('Loaded top three from localStorage:', parsedTopThree);
+              // Validate the data structure
+              if (Array.isArray(parsedTopThree) && parsedTopThree.every(book => 
+                book && book.id && book.title && book.author && book.coverUrl)) {
+                set({ topThree: parsedTopThree });
+              }
+            } catch (e) {
+              console.error('Error parsing stored top three:', e);
+            }
           }
 
           // If user is logged in, sync with Firestore
@@ -73,17 +96,20 @@ export const useBookStore = create<BookState>()(
               const data = userDoc.data();
               console.log('Loaded data from Firestore:', data);
               
-              // Only update if we have favorites in Firestore
-              if (Array.isArray(data.favorites) && data.favorites.length > 0) {
-                set({
-                  favorites: data.favorites,
-                  favoriteGenres: data.favoriteGenres || {},
-                  userNickname: data.nickname || null
-                });
-                
+              // Validate and set the top three from Firestore
+              if (Array.isArray(data.topThree) && data.topThree.every(book => 
+                book && book.id && book.title && book.author && book.coverUrl)) {
+                set({ topThree: data.topThree });
                 // Update localStorage with Firestore data
-                localStorage.setItem('userFavorites', JSON.stringify(data.favorites));
+                localStorage.setItem('userTopThree', JSON.stringify(data.topThree));
               }
+              
+              // Set other user data
+              set({
+                favorites: data.favorites || [],
+                favoriteGenres: data.favoriteGenres || {},
+                userNickname: data.nickname || null
+              });
             }
           }
         } catch (error) {
@@ -257,7 +283,11 @@ export const useBookStore = create<BookState>()(
         set({ favorites: updatedFavorites });
         
         // Update localStorage
-        localStorage.setItem('userFavorites', JSON.stringify(updatedFavorites));
+        try {
+          localStorage.setItem('userFavorites', JSON.stringify(updatedFavorites));
+        } catch (e) {
+          console.error('Error saving to localStorage:', e);
+        }
 
         // Sync with Firestore if logged in
         if (user) {
@@ -282,7 +312,11 @@ export const useBookStore = create<BookState>()(
         set({ favorites: updatedFavorites });
         
         // Update localStorage
-        localStorage.setItem('userFavorites', JSON.stringify(updatedFavorites));
+        try {
+          localStorage.setItem('userFavorites', JSON.stringify(updatedFavorites));
+        } catch (e) {
+          console.error('Error saving to localStorage:', e);
+        }
 
         // Sync with Firestore if logged in
         if (user) {
@@ -297,6 +331,42 @@ export const useBookStore = create<BookState>()(
           } catch (error) {
             console.error('Error syncing favorites to Firestore:', error);
           }
+        }
+      },
+
+      updateTopThree: async (books: Book[]) => {
+        const { user } = useAuthStore.getState();
+        
+        try {
+          if (books.length > 3) {
+            throw new Error('Cannot set more than 3 top books');
+          }
+
+          // Validate books data
+          if (!books.every(book => book && book.id && book.title && book.author && book.coverUrl)) {
+            throw new Error('Invalid book data structure');
+          }
+
+          // Update local state
+          set({ topThree: books });
+
+          // Persist to localStorage
+          try {
+            localStorage.setItem('userTopThree', JSON.stringify(books));
+          } catch (e) {
+            console.error('Error saving to localStorage:', e);
+          }
+
+          // If user is logged in, sync with Firestore
+          if (user) {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            await updateDoc(userDocRef, {
+              topThree: books
+            });
+          }
+        } catch (error) {
+          console.error('Error updating top three:', error);
+          set({ error: 'Failed to update top three books' });
         }
       },
 
@@ -364,6 +434,7 @@ export const useBookStore = create<BookState>()(
       partialize: (state) => ({
         swipedBooks: state.swipedBooks,
         favoriteGenres: state.favoriteGenres,
+        topThree: state.topThree,
       })
     }
   )

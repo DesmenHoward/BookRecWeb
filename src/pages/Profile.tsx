@@ -4,7 +4,7 @@ import { useUserProfileStore } from '../store/userProfileStore';
 import { useBookStore } from '../store/bookStore';
 import { useReviewStore } from '../store/reviewStore';
 import { useAuthStore } from '../store/authStore';
-import { Edit } from 'lucide-react';
+import { Edit, Crown } from 'lucide-react';
 import LoadingIndicator from '../components/LoadingIndicator';
 import EditProfileModal from '../components/EditProfileModal';
 import { Book } from '../types/book';
@@ -12,52 +12,74 @@ import ShopButton from '../components/ShopButton';
 
 export default function Profile() {
   const { userId } = useParams();
-  const { profile, initializeProfile, isLoading } = useUserProfileStore();
-  const { favorites, userNickname, addToFavorites, saveBookToStorage, searchBooks } = useBookStore();
+  const { profile, initializeProfile, isLoading: profileLoading } = useUserProfileStore();
+  const { topThree, userNickname, updateTopThree, searchBooks, loadUserData, isLoading: bookLoading } = useBookStore();
   const { allUserReviews, getUserReviews, updateReview, deleteReview, editingReviewId, setEditingReviewId } = useReviewStore();
   const { user } = useAuthStore();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Book[]>([]);
-  const [showAllFavorites, setShowAllFavorites] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
+  // Load profile and user data
   useEffect(() => {
-    if (userId) {
-      // If viewing another user's profile
-      getUserReviews(userId);
-    } else if (user?.uid) {
-      // If viewing own profile
-      initializeProfile();
-      getUserReviews(user.uid);
-    }
-  }, [userId, user?.uid, initializeProfile, getUserReviews]);
+    const loadData = async () => {
+      try {
+        if (userId) {
+          // If viewing another user's profile
+          getUserReviews(userId);
+        } else if (user?.uid) {
+          // If viewing own profile
+          await Promise.all([
+            initializeProfile(),
+            loadUserData(),
+            getUserReviews(user.uid)
+          ]);
+        }
+      } catch (error) {
+        console.error('Error loading profile data:', error);
+      }
+    };
+    loadData();
+  }, [userId, user?.uid, initializeProfile, loadUserData, getUserReviews]);
 
-  if (isLoading || !profile) {
+  const handleSearchModal = async () => {
+    if (!searchQuery.trim()) return;
+    const results = await searchBooks(searchQuery);
+    setSearchResults(results);
+  };
+
+  const handleAddToTopThree = async (book: Book) => {
+    try {
+      const newTopThree = [...topThree, book];
+      if (newTopThree.length > 3) {
+        newTopThree.shift(); // Remove oldest book if adding a 4th
+      }
+      await updateTopThree(newTopThree);
+      setShowSearchModal(false);
+    } catch (error) {
+      console.error('Error updating top three:', error);
+    }
+  };
+
+  const handleRemoveFromTopThree = async (bookId: string) => {
+    try {
+      const newTopThree = topThree.filter(b => b.id !== bookId);
+      await updateTopThree(newTopThree);
+    } catch (error) {
+      console.error('Error removing book from top three:', error);
+    }
+  };
+
+  if (profileLoading || bookLoading || !profile) {
     return <LoadingIndicator message="Loading profile..." />;
   }
 
   const isOwnProfile = !userId || userId === user?.uid;
 
   const displayedReviews = showAllReviews ? allUserReviews : allUserReviews.slice(0, 3);
-
-  const handleSearch = async () => {
-    const results = await searchBooks(searchQuery);
-    setSearchResults(results);
-  };
-
-  const handleAddToFavorites = (book: Book) => {
-    try {
-      console.log('Adding book to favorites:', book);
-      addToFavorites(book);
-      saveBookToStorage(book);
-      console.log('Book added successfully');
-    } catch (error) {
-      console.error('Error adding book to favorites:', error);
-    }
-  };
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
@@ -120,43 +142,66 @@ export default function Profile() {
       </div>
 
       <div className="bg-surface rounded-xl p-6 mb-8">
-        <h2 className="text-xl font-bold text-text mb-4">Favorite Books</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {favorites.slice(0, showAllFavorites ? favorites.length : 4).map((book) => (
-            <div key={book.id} className="flex flex-col items-start mb-4">
-              <img src={book.coverUrl} alt={book.title} className="w-32 h-48 object-cover rounded" />
-              <h3 className="font-medium text-text mt-2">{book.title}</h3>
-              <p className="text-text-light">by {book.author}</p>
-              <p className="text-text-light mt-2">{book.description.slice(0, 100)}...</p>
-              <div className="flex flex-col w-full gap-2 mt-2">
-                {isOwnProfile && (
-                  <button 
-                    className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" 
-                    onClick={() => setSelectedBook(book)}
-                  >
-                    Read More
-                  </button>
-                )}
-                <ShopButton book={book} className="w-full" />
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="flex space-x-4 mt-4">
-          {favorites.length > 4 && (
-            <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" onClick={() => setShowAllFavorites(!showAllFavorites)}>
-              {showAllFavorites ? 'See Less' : 'See All'}
-            </button>
-          )}
-          {isOwnProfile && (
-            <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors" onClick={() => setShowSearchModal(true)}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-text flex items-center gap-2">
+            <Crown className="w-6 h-6 text-yellow-500" />
+            Top 3 All-Time Favorites
+          </h2>
+          {isOwnProfile && topThree.length < 3 && (
+            <button 
+              className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+              onClick={() => setShowSearchModal(true)}
+            >
               Add Book
             </button>
           )}
         </div>
+
+        {topThree.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-text-light mb-4">Share your all-time favorite books with your followers!</p>
+            {isOwnProfile && (
+              <button 
+                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+                onClick={() => setShowSearchModal(true)}
+              >
+                Add Your First Top Book
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {topThree.map((book, index) => (
+              <div key={book.id} className="flex flex-col items-center">
+                <div className="relative">
+                  <img 
+                    src={book.coverUrl} 
+                    alt={book.title} 
+                    className="w-48 h-72 object-cover rounded-lg shadow-lg"
+                  />
+                  <div className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold shadow-lg">
+                    #{index + 1}
+                  </div>
+                </div>
+                <h3 className="font-medium text-text mt-4 text-center">{book.title}</h3>
+                <p className="text-text-light text-center">by {book.author}</p>
+                <div className="flex flex-col w-full gap-2 mt-4">
+                  <ShopButton book={book} className="w-full" />
+                  {isOwnProfile && (
+                    <button 
+                      className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                      onClick={() => handleRemoveFromTopThree(book.id)}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* My Reviews Section */}
       <div className="bg-surface rounded-xl p-6 mb-8">
         <h2 className="text-xl font-bold text-text mb-4">My Reviews</h2>
         {allUserReviews.length > 0 ? (
@@ -289,33 +334,56 @@ export default function Profile() {
 
       {showSearchModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full p-6">
-            <h2 className="text-xl font-bold text-text mb-4">Search for Books</h2>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search for books"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
-            />
-            <button onClick={handleSearch} className="mt-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors">
-              Search
-            </button>
-
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Add to Top 3</h2>
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearchModal()}
+                placeholder="Search for books"
+                className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+              <button 
+                onClick={handleSearchModal}
+                className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/90"
+              >
+                Search
+              </button>
+            </div>
             {searchResults.length > 0 && (
-              <div className="mt-4">
-                {searchResults.map((book: Book) => (
-                  <div key={book.id} className="flex items-center justify-between mb-2">
-                    <span>{book.title} by {book.author}</span>
-                    <button onClick={() => handleAddToFavorites(book)} className="px-2 py-1 bg-accent text-white rounded">Add</button>
+              <div className="space-y-2">
+                {searchResults.map((book) => (
+                  <div key={book.id} className="flex items-center gap-4 p-2 border rounded">
+                    <img 
+                      src={book.coverUrl} 
+                      alt={book.title}
+                      className="w-12 h-16 object-cover rounded"
+                    />
+                    <div className="flex-1">
+                      <h3 className="font-medium">{book.title}</h3>
+                      <p className="text-sm text-text-light">by {book.author}</p>
+                    </div>
+                    <button
+                      onClick={() => handleAddToTopThree(book)}
+                      className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/90"
+                      disabled={topThree.some(b => b.id === book.id)}
+                    >
+                      {topThree.some(b => b.id === book.id) ? 'Added' : 'Add'}
+                    </button>
                   </div>
                 ))}
               </div>
             )}
-
-            <button onClick={() => setShowSearchModal(false)} className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-              Close
-            </button>
+            <div className="mt-4 flex justify-end">
+              <button 
+                onClick={() => setShowSearchModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

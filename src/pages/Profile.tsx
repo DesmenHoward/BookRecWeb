@@ -4,10 +4,12 @@ import { useUserProfileStore } from '../store/userProfileStore';
 import { useBookStore } from '../store/bookStore';
 import { useReviewStore } from '../store/reviewStore';
 import { useAuthStore } from '../store/authStore';
-import { Edit, Crown, Settings } from 'lucide-react';
+import { useAdminStore } from '../store/adminStore';
+import { Edit, Crown, Settings, Shield } from 'lucide-react';
 import LoadingIndicator from '../components/LoadingIndicator';
 import EditProfileModal from '../components/EditProfileModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
+import AdminModal from '../components/AdminModal';
 import { Book } from '../types/book';
 import ShopButton from '../components/ShopButton';
 
@@ -17,8 +19,10 @@ export default function Profile() {
   const { topThree, userNickname, updateTopThree, loadUserData, isLoading: bookLoading } = useBookStore();
   const { allUserReviews, getUserReviews, updateReview, deleteReview, editingReviewId, setEditingReviewId } = useReviewStore();
   const { user } = useAuthStore();
+  const { isAdmin } = useAdminStore();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
@@ -89,6 +93,17 @@ export default function Profile() {
               >
                 <Settings size={20} />
                 Account Settings
+              </button>
+              <button
+                onClick={() => setShowAdminModal(true)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  isAdmin
+                    ? 'bg-green-500 text-white hover:bg-green-600'
+                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                }`}
+              >
+                <Shield size={20} />
+                {isAdmin ? 'Admin Panel' : 'Request Admin Access'}
               </button>
             </div>
           )}
@@ -323,6 +338,13 @@ export default function Profile() {
         <AccountSettingsModal
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
+        />
+      )}
+
+      {showAdminModal && (
+        <AdminModal
+          isOpen={showAdminModal}
+          onClose={() => setShowAdminModal(false)}
         />
       )}
     </div>

@@ -4,7 +4,7 @@ import { useUserProfileStore } from '../store/userProfileStore';
 import { useBookStore } from '../store/bookStore';
 import { useReviewStore } from '../store/reviewStore';
 import { useAuthStore } from '../store/authStore';
-import { Edit, Crown } from 'lucide-react';
+import { Edit, Crown, Settings } from 'lucide-react';
 import LoadingIndicator from '../components/LoadingIndicator';
 import EditProfileModal from '../components/EditProfileModal';
 import { Book } from '../types/book';
@@ -13,13 +13,12 @@ import ShopButton from '../components/ShopButton';
 export default function Profile() {
   const { userId } = useParams();
   const { profile, initializeProfile, isLoading: profileLoading } = useUserProfileStore();
-  const { topThree, userNickname, updateTopThree, searchBooks, loadUserData, isLoading: bookLoading } = useBookStore();
+  const { topThree, userNickname, updateTopThree, loadUserData, isLoading: bookLoading } = useBookStore();
   const { allUserReviews, getUserReviews, updateReview, deleteReview, editingReviewId, setEditingReviewId } = useReviewStore();
-  const { user } = useAuthStore();
+  const { user, updateUserEmail, updateUserPassword, deleteAccount } = useAuthStore();
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showSearchModal, setShowSearchModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Book[]>([]);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
@@ -44,34 +43,6 @@ export default function Profile() {
     };
     loadData();
   }, [userId, user?.uid, initializeProfile, loadUserData, getUserReviews]);
-
-  const handleSearchModal = async () => {
-    if (!searchQuery.trim()) return;
-    const results = await searchBooks(searchQuery);
-    setSearchResults(results);
-  };
-
-  const handleAddToTopThree = async (book: Book) => {
-    try {
-      const newTopThree = [...topThree, book];
-      if (newTopThree.length > 3) {
-        newTopThree.shift(); // Remove oldest book if adding a 4th
-      }
-      await updateTopThree(newTopThree);
-      setShowSearchModal(false);
-    } catch (error) {
-      console.error('Error updating top three:', error);
-    }
-  };
-
-  const handleRemoveFromTopThree = async (bookId: string) => {
-    try {
-      const newTopThree = topThree.filter(b => b.id !== bookId);
-      await updateTopThree(newTopThree);
-    } catch (error) {
-      console.error('Error removing book from top three:', error);
-    }
-  };
 
   if (profileLoading || bookLoading || !profile) {
     return <LoadingIndicator message="Loading profile..." />;
@@ -104,13 +75,22 @@ export default function Profile() {
           </div>
 
           {isOwnProfile && (
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-            >
-              <Edit size={20} />
-              Edit Profile
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+              >
+                <Edit size={20} />
+                Edit Profile
+              </button>
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                <Settings size={20} />
+                Settings
+              </button>
+            </div>
           )}
         </div>
 
@@ -150,7 +130,7 @@ export default function Profile() {
           {isOwnProfile && topThree.length < 3 && (
             <button 
               className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-              onClick={() => setShowSearchModal(true)}
+              onClick={() => setShowSettingsModal(true)}
             >
               Add Book
             </button>
@@ -163,7 +143,7 @@ export default function Profile() {
             {isOwnProfile && (
               <button 
                 className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-                onClick={() => setShowSearchModal(true)}
+                onClick={() => setShowSettingsModal(true)}
               >
                 Add Your First Top Book
               </button>
@@ -190,7 +170,7 @@ export default function Profile() {
                   {isOwnProfile && (
                     <button 
                       className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                      onClick={() => handleRemoveFromTopThree(book.id)}
+                      onClick={() => updateTopThree(topThree.filter(b => b.id !== book.id))}
                     >
                       Remove
                     </button>
@@ -199,6 +179,124 @@ export default function Profile() {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      <div className="bg-surface rounded-xl p-6 mb-8">
+        <h2 className="text-xl font-bold text-text mb-4">My Reviews</h2>
+        {allUserReviews.length > 0 ? (
+          <>
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+              {displayedReviews.map((review) => (
+                <div key={review.id} className="bg-white p-4 rounded-lg shadow-sm">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold text-text">{review.bookTitle}</h3>
+                    <div className="flex items-center gap-2">
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <span
+                            key={i}
+                            className={`text-lg ${
+                              i < review.rating ? 'text-yellow-400' : 'text-gray-300'
+                            }`}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      {isOwnProfile && (
+                        <div className="flex gap-2">
+                          {editingReviewId === review.id ? (
+                            <button
+                              onClick={async () => {
+                                if (review.id) {
+                                  await updateReview(review.id, {
+                                    rating: review.rating,
+                                    text: review.text
+                                  });
+                                  setEditingReviewId(null);
+                                }
+                              }}
+                              className="text-sm px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                            >
+                              Save
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setEditingReviewId(review.id || null)}
+                              className="text-sm px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          <button
+                            onClick={async () => {
+                              if (review.id && window.confirm('Are you sure you want to delete this review?')) {
+                                await deleteReview(review.id, review.bookId, user.uid);
+                                await getUserReviews(user.uid);
+                              }
+                            }}
+                            className="text-sm px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm text-text-light mb-2">
+                    {new Date(review.createdAt).toLocaleDateString()}
+                  </p>
+                  {editingReviewId === review.id ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-text-light">Rating:</label>
+                        <select
+                          value={review.rating}
+                          onChange={(e) => {
+                            const updatedReviews = allUserReviews.map((r) =>
+                              r.id === review.id ? { ...r, rating: Number(e.target.value) } : r
+                            );
+                            useReviewStore.setState({ allUserReviews: updatedReviews });
+                          }}
+                          className="border rounded p-1"
+                        >
+                          {[1, 2, 3, 4, 5].map((rating) => (
+                            <option key={rating} value={rating}>
+                              {rating}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <textarea
+                        value={review.text}
+                        onChange={(e) => {
+                          const updatedReviews = allUserReviews.map((r) =>
+                            r.id === review.id ? { ...r, text: e.target.value } : r
+                          );
+                          useReviewStore.setState({ allUserReviews: updatedReviews });
+                        }}
+                        className="w-full p-2 border rounded"
+                        rows={3}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-text">{review.text}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            {allUserReviews.length > 3 && (
+              <button
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                onClick={() => setShowAllReviews(!showAllReviews)}
+              >
+                {showAllReviews ? 'Show Less' : `Show All (${allUserReviews.length})`}
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="text-text-light">You haven't written any reviews yet.</p>
         )}
       </div>
 
@@ -332,58 +430,186 @@ export default function Profile() {
         </div>
       )}
 
-      {showSearchModal && (
+      {/* Settings Modal */}
+      {showSettingsModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Add to Top 3</h2>
-            <div className="flex gap-2 mb-4">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearchModal()}
-                placeholder="Search for books"
-                className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-accent"
-              />
-              <button 
-                onClick={handleSearchModal}
-                className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/90"
-              >
-                Search
-              </button>
-            </div>
-            {searchResults.length > 0 && (
-              <div className="space-y-2">
-                {searchResults.map((book) => (
-                  <div key={book.id} className="flex items-center gap-4 p-2 border rounded">
-                    <img 
-                      src={book.coverUrl} 
-                      alt={book.title}
-                      className="w-12 h-16 object-cover rounded"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-medium">{book.title}</h3>
-                      <p className="text-sm text-text-light">by {book.author}</p>
-                    </div>
-                    <button
-                      onClick={() => handleAddToTopThree(book)}
-                      className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/90"
-                      disabled={topThree.some(b => b.id === book.id)}
-                    >
-                      {topThree.some(b => b.id === book.id) ? 'Added' : 'Add'}
-                    </button>
-                  </div>
-                ))}
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full">
+            <h2 className="text-xl font-bold mb-6">Account Settings</h2>
+            
+            <div className="space-y-6">
+              {/* Update Email Section */}
+              <div className="space-y-4">
+                <h3 className="font-medium text-lg">Update Email</h3>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const currentPassword = (form.elements.namedItem('emailCurrentPassword') as HTMLInputElement).value;
+                  const newEmail = (form.elements.namedItem('newEmail') as HTMLInputElement).value;
+                  
+                  try {
+                    await updateUserEmail(currentPassword, newEmail);
+                    form.reset();
+                    alert('Email updated successfully!');
+                  } catch (error: any) {
+                    alert(error.message);
+                  }
+                }} className="space-y-3">
+                  <input
+                    type="password"
+                    name="emailCurrentPassword"
+                    placeholder="Current Password"
+                    required
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
+                  />
+                  <input
+                    type="email"
+                    name="newEmail"
+                    placeholder="New Email"
+                    required
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
+                  />
+                  <button 
+                    type="submit"
+                    className="w-full px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90"
+                  >
+                    Update Email
+                  </button>
+                </form>
               </div>
-            )}
-            <div className="mt-4 flex justify-end">
+
+              {/* Update Password Section */}
+              <div className="space-y-4">
+                <h3 className="font-medium text-lg">Update Password</h3>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const currentPassword = (form.elements.namedItem('passwordCurrentPassword') as HTMLInputElement).value;
+                  const newPassword = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
+                  const confirmPassword = (form.elements.namedItem('confirmPassword') as HTMLInputElement).value;
+                  
+                  if (newPassword !== confirmPassword) {
+                    alert('New passwords do not match!');
+                    return;
+                  }
+                  
+                  try {
+                    await updateUserPassword(currentPassword, newPassword);
+                    form.reset();
+                    alert('Password updated successfully!');
+                  } catch (error: any) {
+                    alert(error.message);
+                  }
+                }} className="space-y-3">
+                  <input
+                    type="password"
+                    name="passwordCurrentPassword"
+                    placeholder="Current Password"
+                    required
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
+                  />
+                  <input
+                    type="password"
+                    name="newPassword"
+                    placeholder="New Password"
+                    required
+                    minLength={6}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
+                  />
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    placeholder="Confirm New Password"
+                    required
+                    minLength={6}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
+                  />
+                  <button 
+                    type="submit"
+                    className="w-full px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90"
+                  >
+                    Update Password
+                  </button>
+                </form>
+              </div>
+
+              {/* Account Information */}
+              <div className="space-y-4">
+                <h3 className="font-medium text-lg">Account Information</h3>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                  <p><span className="font-medium">Email:</span> {user?.email}</p>
+                </div>
+              </div>
+
+              {/* Delete Account Section */}
+              <div className="space-y-4">
+                <h3 className="font-medium text-lg text-red-600">Delete Account</h3>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <p className="text-red-700 mb-4">Warning: This action cannot be undone. All your data will be permanently deleted.</p>
+                  <button 
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
               <button 
-                onClick={() => setShowSearchModal(false)}
+                onClick={() => setShowSettingsModal(false)}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
               >
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-red-600 mb-4">Delete Account</h3>
+            <p className="text-gray-700 mb-6">
+              This will permanently delete your account and all associated data. This action cannot be undone.
+            </p>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const form = e.target as HTMLFormElement;
+              const password = (form.elements.namedItem('deleteAccountPassword') as HTMLInputElement).value;
+              
+              try {
+                await deleteAccount(password);
+                // No need to close modal or show success message as user will be logged out
+              } catch (error: any) {
+                alert(error.message);
+              }
+            }} className="space-y-4">
+              <input
+                type="password"
+                name="deleteAccountPassword"
+                placeholder="Enter your password to confirm"
+                required
+                className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-red-500"
+              />
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                >
+                  Confirm Delete
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useUserProfileStore } from '../store/userProfileStore';
 import { useBookStore } from '../store/bookStore';
+import { useReviewStore } from '../store/reviewStore';
+import { useAuthStore } from '../store/authStore';
 import { Edit } from 'lucide-react';
 import LoadingIndicator from '../components/LoadingIndicator';
 import EditProfileModal from '../components/EditProfileModal';
@@ -9,16 +11,25 @@ import { Book } from '../types/book';
 export default function Profile() {
   const { profile, initializeProfile, isLoading } = useUserProfileStore();
   const { favorites, userNickname, addToFavorites, saveBookToStorage, searchBooks } = useBookStore();
+  const { allUserReviews, getUserReviews } = useReviewStore();
+  const { user } = useAuthStore();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Book[]>([]);
   const [showAllFavorites, setShowAllFavorites] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
 
   useEffect(() => {
     initializeProfile();
   }, []);
+
+  useEffect(() => {
+    if (user?.uid) {
+      getUserReviews(user.uid);
+    }
+  }, [user?.uid, getUserReviews]);
 
   const handleSearch = async () => {
     const results = await searchBooks(searchQuery);
@@ -39,6 +50,8 @@ export default function Profile() {
   if (isLoading || !profile) {
     return <LoadingIndicator message="Loading profile..." />;
   }
+
+  const displayedReviews = showAllReviews ? allUserReviews : allUserReviews.slice(0, 3);
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
@@ -77,7 +90,7 @@ export default function Profile() {
 
         <div className="mt-6 flex flex-wrap gap-4">
           {profile.location && (
-            <span className="text-text-light">📍 {profile.location}</span>
+            <span className="text-text-light"> {profile.location}</span>
           )}
           {profile.socialLinks && (
             <div className="flex gap-4">
@@ -123,52 +136,96 @@ export default function Profile() {
             Add Book
           </button>
         </div>
+      </div>
 
-        {selectedBook && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl max-w-2xl w-full p-6">
-              <h2 className="text-xl font-bold text-text mb-4">{selectedBook.title}</h2>
-              <p className="text-text-light">{selectedBook.description}</p>
-              <button onClick={() => setSelectedBook(null)} className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {showSearchModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl max-w-2xl w-full p-6">
-              <h2 className="text-xl font-bold text-text mb-4">Search for Books</h2>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for books"
-                className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
-              />
-              <button onClick={handleSearch} className="mt-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors">
-                Search
-              </button>
-
-              {searchResults.length > 0 && (
-                <div className="mt-4">
-                  {searchResults.map((book: Book) => (
-                    <div key={book.id} className="flex items-center justify-between mb-2">
-                      <span>{book.title} by {book.author}</span>
-                      <button onClick={() => handleAddToFavorites(book)} className="px-2 py-1 bg-accent text-white rounded">Add</button>
+      {/* My Reviews Section */}
+      <div className="bg-surface rounded-xl p-6 mb-8">
+        <h2 className="text-xl font-bold text-text mb-4">My Reviews</h2>
+        {allUserReviews.length > 0 ? (
+          <>
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+              {displayedReviews.map((review) => (
+                <div key={review.id} className="bg-white p-4 rounded-lg shadow-sm">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold text-text">{review.bookTitle}</h3>
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <span
+                          key={i}
+                          className={`text-lg ${
+                            i < review.rating ? 'text-yellow-400' : 'text-gray-300'
+                          }`}
+                        >
+                          ★
+                        </span>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                  <p className="text-sm text-text-light mb-2">
+                    {new Date(review.createdAt).toLocaleDateString()}
+                  </p>
+                  <p className="text-text">{review.text}</p>
                 </div>
-              )}
-
-              <button onClick={() => setShowSearchModal(false)} className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-                Close
-              </button>
+              ))}
             </div>
-          </div>
+            {allUserReviews.length > 3 && (
+              <button
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                onClick={() => setShowAllReviews(!showAllReviews)}
+              >
+                {showAllReviews ? 'Show Less' : `Show All (${allUserReviews.length})`}
+              </button>
+            )}
+          </>
+        ) : (
+          <p className="text-text-light">You haven't written any reviews yet.</p>
         )}
       </div>
+
+      {selectedBook && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-2xl w-full p-6">
+            <h2 className="text-xl font-bold text-text mb-4">{selectedBook.title}</h2>
+            <p className="text-text-light">{selectedBook.description}</p>
+            <button onClick={() => setSelectedBook(null)} className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showSearchModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-2xl w-full p-6">
+            <h2 className="text-xl font-bold text-text mb-4">Search for Books</h2>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search for books"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
+            />
+            <button onClick={handleSearch} className="mt-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors">
+              Search
+            </button>
+
+            {searchResults.length > 0 && (
+              <div className="mt-4">
+                {searchResults.map((book: Book) => (
+                  <div key={book.id} className="flex items-center justify-between mb-2">
+                    <span>{book.title} by {book.author}</span>
+                    <button onClick={() => handleAddToFavorites(book)} className="px-2 py-1 bg-accent text-white rounded">Add</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button onClick={() => setShowSearchModal(false)} className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       <EditProfileModal
         isOpen={showEditModal}

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useBookStore } from '../store/bookStore';
 import { useReviewStore } from '../store/reviewStore';
 import { useAuthStore } from '../store/authStore';
+import { useUserProfileStore } from '../store/userProfileStore';
 import { Book } from '../types/book';
 import { Search } from 'lucide-react';
 import LoadingIndicator from '../components/LoadingIndicator';
@@ -13,55 +14,87 @@ export default function Reviews() {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { searchBooks } = useBookStore();
-  const { reviews, getBookReviews, addReview, isLoading } = useReviewStore();
+  const { reviews, allUserReviews, getBookReviews, getUserReviews, addReview, isLoading } = useReviewStore();
   const { user } = useAuthStore();
+  const { profile, initializeProfile } = useUserProfileStore();
+
+  // Load user's reviews and profile when component mounts or user changes
+  useEffect(() => {
+    if (user?.uid) {
+      getUserReviews(user.uid);
+      initializeProfile();
+    }
+  }, [user?.uid, getUserReviews, initializeProfile]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
+    setError(null);
     
-    const results = await searchBooks(searchQuery);
-    setSearchResults(results);
-    setSelectedBook(null);
+    try {
+      const results = await searchBooks(searchQuery);
+      setSearchResults(results);
+      setSelectedBook(null);
+    } catch (err) {
+      setError('Failed to search for books. Please try again.');
+    }
   };
 
-  const handleBookSelect = async (book: Book) => {
+  const handleBookSelect = useCallback(async (book: Book) => {
     setSelectedBook(book);
-    await getBookReviews(book.id);
+    setError(null);
+    try {
+      await getBookReviews(book.id);
+    } catch (err) {
+      setError('Failed to load reviews. Please try again.');
+    }
     // Reset review form
     setRating(0);
     setReviewText('');
-  };
+  }, [getBookReviews]);
 
   const handleSubmitReview = async () => {
-    if (!user || !selectedBook) return;
+    if (!user || !selectedBook || !profile) return;
+    if (!rating || !reviewText.trim()) {
+      setError('Please provide both a rating and review text.');
+      return;
+    }
     
+    setError(null);
     setIsSubmitting(true);
     try {
       await addReview({
         bookId: selectedBook.id,
         bookTitle: selectedBook.title,
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
+        userName: profile.displayName || profile.username || user.displayName || user.uid,
         rating,
-        text: reviewText
+        text: reviewText.trim()
       });
+      
       // Reset form
       setRating(0);
       setReviewText('');
-    } catch (error) {
-      console.error('Failed to submit review:', error);
+      setError(null);
+    } catch (err) {
+      setError('Failed to submit review. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const userReviews = reviews.filter(review => review.userId === user.uid);
-
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       <div className="bg-surface rounded-xl p-6">
         <h1 className="text-2xl font-bold text-text mb-6">Book Reviews</h1>
+        
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+            {error}
+          </div>
+        )}
         
         {/* Search Bar */}
         <div className="mb-8">
@@ -86,13 +119,31 @@ export default function Reviews() {
         {/* My Reviews Section */}
         <div className="mt-8">
           <h2 className="text-xl font-semibold text-text mb-4">My Reviews</h2>
-          {userReviews.length > 0 ? (
+          {allUserReviews.length > 0 ? (
             <div className="space-y-4">
-              {userReviews.map((review) => (
+              {allUserReviews.map((review) => (
                 <div key={review.id} className="p-4 bg-white rounded-lg shadow-sm">
-                  <h3 className="font-semibold text-text">{review.bookTitle}</h3>
-                  <p className="text-text-light text-sm">Rating: {review.rating}</p>
-                  <p>{review.text}</p>
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className="font-semibold text-text">{review.bookTitle}</h3>
+                      <span className="text-text-light text-sm">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <span
+                          key={i}
+                          className={`text-lg ${
+                            i < review.rating ? 'text-yellow-400' : 'text-gray-300'
+                          }`}
+                        >
+                          ★
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mt-2">{review.text}</p>
                 </div>
               ))}
             </div>
@@ -103,7 +154,7 @@ export default function Reviews() {
 
         {/* Search Results */}
         {searchResults.length > 0 && !selectedBook && (
-          <div className="space-y-4">
+          <div className="mt-8">
             <h2 className="text-xl font-semibold text-text mb-4">Search Results</h2>
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               {searchResults.map((book) => (
@@ -129,7 +180,7 @@ export default function Reviews() {
 
         {/* Selected Book Reviews */}
         {selectedBook && (
-          <div>
+          <div className="mt-8">
             <button
               onClick={() => setSelectedBook(null)}
               className="text-accent hover:text-accent/80 mb-4"
@@ -153,40 +204,9 @@ export default function Reviews() {
               <LoadingIndicator message="Loading reviews..." />
             ) : (
               <>
-                {reviews.length > 0 && (
-                  <div className="space-y-6 mb-8">
-                    <h3 className="text-lg font-semibold text-text">Reviews</h3>
-                    {reviews.map((review) => (
-                      <div key={review.id} className="bg-white p-4 rounded-lg shadow-sm">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <span className="font-medium text-text">{review.userName}</span>
-                            <span className="text-text-light text-sm ml-2">
-                              {new Date(review.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <div className="flex items-center">
-                            {[...Array(5)].map((_, i) => (
-                              <span
-                                key={i}
-                                className={`text-lg ${
-                                  i < review.rating ? 'text-yellow-400' : 'text-gray-300'
-                                }`}
-                              >
-                                ★
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-text">{review.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {/* Review Form */}
                 {user ? (
-                  <div className="bg-white p-6 rounded-lg shadow-sm">
+                  <div className="bg-white p-6 rounded-lg shadow-sm mb-8">
                     <h3 className="text-lg font-semibold text-text mb-4">
                       {reviews.length === 0 ? 'Be the first to review this book!' : 'Write a Review'}
                     </h3>
@@ -230,6 +250,38 @@ export default function Reviews() {
                     <p className="text-text-light">
                       Please sign in to write a review.
                     </p>
+                  </div>
+                )}
+
+                {/* Book Reviews */}
+                {reviews.length > 0 && (
+                  <div className="space-y-6">
+                    <h3 className="text-lg font-semibold text-text">Reviews</h3>
+                    {reviews.map((review) => (
+                      <div key={review.id} className="bg-white p-4 rounded-lg shadow-sm">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <span className="font-medium text-text">{review.userName}</span>
+                            <span className="text-text-light text-sm ml-2">
+                              {new Date(review.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center">
+                            {[...Array(5)].map((_, i) => (
+                              <span
+                                key={i}
+                                className={`text-lg ${
+                                  i < review.rating ? 'text-yellow-400' : 'text-gray-300'
+                                }`}
+                              >
+                                ★
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-text">{review.text}</p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </>

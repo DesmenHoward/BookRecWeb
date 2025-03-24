@@ -11,7 +11,7 @@ import { Book } from '../types/book';
 export default function Profile() {
   const { profile, initializeProfile, isLoading } = useUserProfileStore();
   const { favorites, userNickname, addToFavorites, saveBookToStorage, searchBooks } = useBookStore();
-  const { allUserReviews, getUserReviews } = useReviewStore();
+  const { allUserReviews, getUserReviews, updateReview, deleteReview, editingReviewId, setEditingReviewId } = useReviewStore();
   const { user } = useAuthStore();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -148,23 +148,98 @@ export default function Profile() {
                 <div key={review.id} className="bg-white p-4 rounded-lg shadow-sm">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-semibold text-text">{review.bookTitle}</h3>
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <span
-                          key={i}
-                          className={`text-lg ${
-                            i < review.rating ? 'text-yellow-400' : 'text-gray-300'
-                          }`}
-                        >
-                          ★
-                        </span>
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <span
+                            key={i}
+                            className={`text-lg ${
+                              i < review.rating ? 'text-yellow-400' : 'text-gray-300'
+                            }`}
+                          >
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      {user?.uid === review.userId && (
+                        <div className="flex gap-2">
+                          {editingReviewId === review.id ? (
+                            <button
+                              onClick={async () => {
+                                if (review.id) {
+                                  await updateReview(review.id, {
+                                    rating: review.rating,
+                                    text: review.text
+                                  });
+                                  setEditingReviewId(null);
+                                }
+                              }}
+                              className="text-sm px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                            >
+                              Save
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setEditingReviewId(review.id || null)}
+                              className="text-sm px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          <button
+                            onClick={async () => {
+                              if (review.id && window.confirm('Are you sure you want to delete this review?')) {
+                                await deleteReview(review.id, review.bookId, user.uid);
+                                await getUserReviews(user.uid);
+                              }
+                            }}
+                            className="text-sm px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <p className="text-sm text-text-light mb-2">
                     {new Date(review.createdAt).toLocaleDateString()}
                   </p>
-                  <p className="text-text">{review.text}</p>
+                  {editingReviewId === review.id ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-text-light">Rating:</label>
+                        <select
+                          value={review.rating}
+                          onChange={(e) => {
+                            const updatedReviews = allUserReviews.map((r) =>
+                              r.id === review.id ? { ...r, rating: Number(e.target.value) } : r
+                            );
+                            useReviewStore.setState({ allUserReviews: updatedReviews });
+                          }}
+                          className="border rounded p-1"
+                        >
+                          {[1, 2, 3, 4, 5].map((rating) => (
+                            <option key={rating} value={rating}>
+                              {rating}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <textarea
+                        value={review.text}
+                        onChange={(e) => {
+                          const updatedReviews = allUserReviews.map((r) =>
+                            r.id === review.id ? { ...r, text: e.target.value } : r
+                          );
+                          useReviewStore.setState({ allUserReviews: updatedReviews });
+                        }}
+                        className="w-full p-2 border rounded"
+                        rows={3}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-text">{review.text}</p>
+                  )}
                 </div>
               ))}
             </div>

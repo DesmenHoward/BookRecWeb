@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Heart, User, Sparkles, MessageSquare } from 'lucide-react';
+import { Heart, User, Sparkles, MessageSquare, BookOpen } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 export default function Navigation() {
@@ -25,6 +25,7 @@ export default function Navigation() {
             to="/" 
             className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
           >
+            <BookOpen className="inline-block mr-1" size={18} />
             Discover
           </Link>
           <Link 

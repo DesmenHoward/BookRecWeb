@@ -40,9 +40,16 @@ export const useAuthStore = create<AuthState>(
         set({ isLoading: true, error: null });
         try {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          set({ user: userCredential.user, isAuthenticated: true, isLoading: false, error: null });
+          const isAdmin = email === 'desmenhoward23@gmail.com';
+          set({ 
+            user: userCredential.user, 
+            isAuthenticated: true, 
+            isLoading: false, 
+            error: null,
+            isAdmin
+          });
         } catch (error: any) {
-          set({ error: error.message, isLoading: false, isAuthenticated: false });
+          set({ error: error.message, isLoading: false, isAuthenticated: false, isAdmin: false });
         }
       },
 
@@ -50,19 +57,32 @@ export const useAuthStore = create<AuthState>(
         set({ isLoading: true, error: null });
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          set({ user: userCredential.user, isAuthenticated: true, isLoading: false, error: null });
+          const isAdmin = email === 'desmenhoward23@gmail.com';
+          set({ 
+            user: userCredential.user, 
+            isAuthenticated: true, 
+            isLoading: false, 
+            error: null,
+            isAdmin
+          });
         } catch (error: any) {
-          set({ error: error.message, isLoading: false, isAuthenticated: false });
+          set({ error: error.message, isLoading: false, isAuthenticated: false, isAdmin: false });
         }
       },
 
       logout: async () => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
           await signOut(auth);
-          set({ user: null, isAuthenticated: false, isLoading: false, error: null });
+          set({ 
+            user: null, 
+            isAuthenticated: false, 
+            isLoading: false, 
+            error: null,
+            isAdmin: false 
+          });
         } catch (error: any) {
-          set({ error: 'Failed to sign out', isLoading: false });
+          set({ error: error.message, isLoading: false });
         }
       },
 

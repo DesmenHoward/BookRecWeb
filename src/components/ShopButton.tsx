@@ -18,7 +18,7 @@ const ShopButton: FC<ShopButtonProps> = ({ book, className = '' }) => {
     <button
       onClick={handleClick}
       className={`
-        flex items-center gap-2 px-4 py-2 rounded-lg
+        flex items-center justify-center gap-2 px-4 py-2 rounded-lg
         bg-amber-500 text-white hover:bg-amber-600
         transition-colors
         ${className}

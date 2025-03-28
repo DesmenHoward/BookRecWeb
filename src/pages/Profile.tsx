@@ -10,13 +10,21 @@ import LoadingIndicator from '../components/LoadingIndicator';
 import EditProfileModal from '../components/EditProfileModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import AdminModal from '../components/AdminModal';
+import SelectBookModal from '../components/SelectBookModal';
 import { Book } from '../types/book';
 import ShopButton from '../components/ShopButton';
 
 export default function Profile() {
   const { userId } = useParams();
   const { profile, initializeProfile, isLoading: profileLoading } = useUserProfileStore();
-  const { topThree, userNickname, updateTopThree, loadUserData, isLoading: bookLoading } = useBookStore();
+  const { 
+    topThree, 
+    userNickname, 
+    updateTopThree, 
+    loadUserData, 
+    loadOtherUserData, 
+    isLoading: bookLoading 
+  } = useBookStore();
   const { allUserReviews, getUserReviews, updateReview, deleteReview, editingReviewId, setEditingReviewId } = useReviewStore();
   const { user } = useAuthStore();
   const { isAdmin } = useAdminStore();
@@ -25,6 +33,7 @@ export default function Profile() {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [showSelectBookModal, setShowSelectBookModal] = useState(false);
 
   // Load profile and user data
   useEffect(() => {
@@ -32,7 +41,10 @@ export default function Profile() {
       try {
         if (userId) {
           // If viewing another user's profile
-          getUserReviews(userId);
+          await Promise.all([
+            getUserReviews(userId),
+            loadOtherUserData(userId)
+          ]);
         } else if (user?.uid) {
           // If viewing own profile
           await Promise.all([
@@ -46,7 +58,24 @@ export default function Profile() {
       }
     };
     loadData();
-  }, [userId, user?.uid, initializeProfile, loadUserData, getUserReviews]);
+  }, [userId, user?.uid, initializeProfile, loadUserData, loadOtherUserData, getUserReviews]);
+
+  const handleAddBook = async (book: Book) => {
+    if (!user) {
+      return; // Should never happen as the button is only shown to logged-in users
+    }
+    
+    if (topThree.length >= 3) {
+      return;
+    }
+    
+    try {
+      const updatedTopThree = [...topThree, book];
+      await updateTopThree(updatedTopThree);
+    } catch (error) {
+      console.error('Error adding book to top three:', error);
+    }
+  };
 
   if (profileLoading || bookLoading || !profile) {
     return <LoadingIndicator message="Loading profile..." />;
@@ -94,17 +123,15 @@ export default function Profile() {
                 <Settings size={20} />
                 Account Settings
               </button>
-              <button
-                onClick={() => setShowAdminModal(true)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  isAdmin
-                    ? 'bg-green-500 text-white hover:bg-green-600'
-                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                }`}
-              >
-                <Shield size={20} />
-                {isAdmin ? 'Admin Panel' : 'Request Admin Access'}
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAdminModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                >
+                  <Shield size={20} />
+                  Admin Panel
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -145,7 +172,7 @@ export default function Profile() {
           {isOwnProfile && topThree.length < 3 && (
             <button 
               className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-              onClick={() => {}}
+              onClick={() => setShowSelectBookModal(true)}
             >
               Add Book
             </button>
@@ -158,7 +185,7 @@ export default function Profile() {
             {isOwnProfile && (
               <button 
                 className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-                onClick={() => {}}
+                onClick={() => setShowSelectBookModal(true)}
               >
                 Add Your First Top Book
               </button>
@@ -345,6 +372,15 @@ export default function Profile() {
         <AdminModal
           isOpen={showAdminModal}
           onClose={() => setShowAdminModal(false)}
+        />
+      )}
+
+      {showSelectBookModal && (
+        <SelectBookModal
+          isOpen={showSelectBookModal}
+          onClose={() => setShowSelectBookModal(false)}
+          onSelect={handleAddBook}
+          excludeBooks={topThree}
         />
       )}
     </div>

@@ -50,7 +50,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
           ) : (
             <div className="p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg">
               Your email ({user?.email}) is not registered for admin access.
-              {"\n"}Please contact the system administrator if you believe this is an error.
+              Please contact the system administrator if you believe this is an error.
             </div>
           )}
 

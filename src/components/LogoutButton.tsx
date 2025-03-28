@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, Text, Alert } from 'react-native';
-import { LogOut } from 'lucide-react-native';
+import { LogOut } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { useRouter } from 'expo-router';
+import { useNavigate } from 'react-router-dom';
+import LogoutSplashScreen from './LogoutSplashScreen';
 
 // Theme colors
 const THEME = {
@@ -21,87 +21,73 @@ interface LogoutButtonProps {
 
 export default function LogoutButton({ variant = 'full' }: LogoutButtonProps) {
   const { logout } = useAuthStore();
-  const router = useRouter();
+  const navigate = useNavigate();
+  const [showSplash, setShowSplash] = React.useState(false);
   
-  const handleLogout = async () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              // Reset navigation state and redirect to login
-              router.replace('/(auth)/login');
-            } catch (error) {
-              Alert.alert(
-                'Error',
-                'Failed to log out. Please try again.',
-                [{ text: 'OK' }]
-              );
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+  const handleLogoutConfirm = async () => {
+    try {
+      await logout();
+      // Reset navigation state and redirect to login
+      navigate('/login');
+    } catch (error) {
+      // If there's an error, hide the splash screen and show an error message
+      setShowSplash(false);
+      window.alert('Failed to log out. Please try again.');
+    }
   };
   
   if (variant === 'icon') {
     return (
-      <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
-        <LogOut size={24} color={THEME.accent} />
-      </TouchableOpacity>
+      <>
+        <button 
+          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          onClick={() => setShowSplash(true)}
+        >
+          <LogOut size={24} color={THEME.accent} />
+        </button>
+        <LogoutSplashScreen
+          visible={showSplash}
+          onConfirm={handleLogoutConfirm}
+          onCancel={() => setShowSplash(false)}
+        />
+      </>
     );
   }
   
   if (variant === 'text') {
     return (
-      <TouchableOpacity onPress={handleLogout}>
-        <Text style={styles.textButton}>Log Out</Text>
-      </TouchableOpacity>
+      <>
+        <button
+          className="text-base font-bold hover:opacity-80 transition-opacity"
+          style={{ color: THEME.accent }}
+          onClick={() => setShowSplash(true)}
+        >
+          Log Out
+        </button>
+        <LogoutSplashScreen
+          visible={showSplash}
+          onConfirm={handleLogoutConfirm}
+          onCancel={() => setShowSplash(false)}
+        />
+      </>
     );
   }
   
   return (
-    <TouchableOpacity style={styles.fullButton} onPress={handleLogout}>
-      <LogOut size={20} color="white" style={styles.buttonIcon} />
-      <Text style={styles.buttonText}>Log Out</Text>
-    </TouchableOpacity>
+    <>
+      <button
+        className="flex items-center justify-center py-3 px-5 rounded-full text-white hover:opacity-90 transition-opacity"
+        style={{ backgroundColor: THEME.accent }}
+        onClick={() => setShowSplash(true)}
+      >
+        <LogOut size={20} className="mr-2" />
+        <span className="font-bold">Log Out</span>
+      </button>
+      <LogoutSplashScreen
+        visible={showSplash}
+        onConfirm={handleLogoutConfirm}
+        onCancel={() => setShowSplash(false)}
+      />
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  iconButton: {
-    padding: 8,
-  },
-  textButton: {
-    color: THEME.accent,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  fullButton: {
-    backgroundColor: THEME.accent,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 30,
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-});

@@ -11,13 +11,13 @@ import {
   reauthenticateWithCredential,
   deleteUser
 } from 'firebase/auth';
+import { useAdminStore } from './adminStore';
 
 interface AuthState {
   user: any;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -34,22 +34,26 @@ export const useAuthStore = create<AuthState>(
       isAuthenticated: false,
       isLoading: false,
       error: null,
-      isAdmin: false,
 
       login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
           const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          const isAdmin = email === 'desmenhoward23@gmail.com';
           set({ 
             user: userCredential.user, 
             isAuthenticated: true, 
             isLoading: false, 
-            error: null,
-            isAdmin
+            error: null
           });
+          // Check admin status after login
+          useAdminStore.getState().checkAdminStatus(email);
         } catch (error: any) {
-          set({ error: error.message, isLoading: false, isAuthenticated: false, isAdmin: false });
+          set({ 
+            error: error.message, 
+            isLoading: false,
+            isAuthenticated: false 
+          });
+          throw error;
         }
       },
 
@@ -57,113 +61,93 @@ export const useAuthStore = create<AuthState>(
         set({ isLoading: true, error: null });
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const isAdmin = email === 'desmenhoward23@gmail.com';
           set({ 
             user: userCredential.user, 
             isAuthenticated: true, 
             isLoading: false, 
-            error: null,
-            isAdmin
+            error: null
           });
         } catch (error: any) {
-          set({ error: error.message, isLoading: false, isAuthenticated: false, isAdmin: false });
+          set({ 
+            error: error.message, 
+            isLoading: false,
+            isAuthenticated: false 
+          });
+          throw error;
         }
       },
 
       logout: async () => {
-        set({ isLoading: true, error: null });
         try {
           await signOut(auth);
           set({ 
             user: null, 
             isAuthenticated: false, 
-            isLoading: false, 
-            error: null,
-            isAdmin: false 
-          });
-        } catch (error: any) {
-          set({ error: error.message, isLoading: false });
-        }
-      },
-
-      updateUserEmail: async (currentPassword: string, newEmail: string) => {
-        const { user } = get();
-        if (!user) throw new Error('No user logged in');
-
-        try {
-          set({ isLoading: true, error: null });
-          
-          // Re-authenticate user
-          const credential = EmailAuthProvider.credential(user.email, currentPassword);
-          await reauthenticateWithCredential(user, credential);
-          
-          // Update email
-          await updateEmail(user, newEmail);
-          set({ 
-            user: { ...user, email: newEmail },
             error: null 
           });
         } catch (error: any) {
           set({ error: error.message });
           throw error;
-        } finally {
-          set({ isLoading: false });
         }
       },
 
-      updateUserPassword: async (currentPassword: string, newPassword: string) => {
-        const { user } = get();
-        if (!user) throw new Error('No user logged in');
-
+      updateUserEmail: async (currentPassword, newEmail) => {
+        const user = auth.currentUser;
+        if (!user || !user.email) throw new Error('No user logged in');
+        
         try {
-          set({ isLoading: true, error: null });
-          
-          // Re-authenticate user
           const credential = EmailAuthProvider.credential(user.email, currentPassword);
           await reauthenticateWithCredential(user, credential);
-          
-          // Update password
-          await updatePassword(user, newPassword);
-          set({ error: null });
+          await updateEmail(user, newEmail);
+          set({ user: auth.currentUser });
         } catch (error: any) {
           set({ error: error.message });
           throw error;
-        } finally {
-          set({ isLoading: false });
         }
       },
 
-      deleteAccount: async (currentPassword: string) => {
-        const { user } = get();
-        if (!user) throw new Error('No user logged in');
+      updateUserPassword: async (currentPassword, newPassword) => {
+        const user = auth.currentUser;
+        if (!user || !user.email) throw new Error('No user logged in');
 
         try {
-          set({ isLoading: true, error: null });
-          
-          // Re-authenticate user before deletion
           const credential = EmailAuthProvider.credential(user.email, currentPassword);
           await reauthenticateWithCredential(user, credential);
-          
-          // Delete the user
+          await updatePassword(user, newPassword);
+        } catch (error: any) {
+          set({ error: error.message });
+          throw error;
+        }
+      },
+
+      deleteAccount: async (currentPassword) => {
+        const user = auth.currentUser;
+        if (!user || !user.email) throw new Error('No user logged in');
+
+        try {
+          const credential = EmailAuthProvider.credential(user.email, currentPassword);
+          await reauthenticateWithCredential(user, credential);
           await deleteUser(user);
-          
-          // Clear auth state
           set({ 
             user: null, 
             isAuthenticated: false, 
-            isLoading: false, 
             error: null 
           });
         } catch (error: any) {
           set({ error: error.message });
           throw error;
-        } finally {
-          set({ isLoading: false });
         }
       },
 
       clearError: () => set({ error: null }),
     }),
-    { name: 'auth-storage', getStorage: () => localStorage }
+    {
+      name: 'auth-storage',
+      getStorage: () => localStorage,
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated
+      }),
+    }
   )
 );

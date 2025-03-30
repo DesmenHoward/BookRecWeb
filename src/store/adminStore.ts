@@ -8,30 +8,41 @@ interface AdminState {
   isAdmin: boolean;
   isAdminModalOpen: boolean;
   error: string | null;
-  checkAdminStatus: (email: string) => boolean;
+  checkAdminStatus: (email: string) => void;
   setIsAdmin: (value: boolean) => void;
   setIsAdminModalOpen: (value: boolean) => void;
   setError: (error: string | null) => void;
 }
 
+// Create the store
+const createAdminStore = (set: any) => ({
+  isAdmin: false,
+  isAdminModalOpen: false,
+  error: null,
+  checkAdminStatus: (email: string) => {
+    console.log('Checking admin status for email:', email);
+    const isAdmin = ADMIN_EMAILS.includes(email.toLowerCase());
+    console.log('Admin check result:', isAdmin);
+    set({ isAdmin });
+  },
+  setIsAdmin: (value: boolean) => {
+    console.log('Setting admin status to:', value);
+    set({ isAdmin: value });
+  },
+  setIsAdminModalOpen: (value: boolean) => set({ isAdminModalOpen: value }),
+  setError: (error: string | null) => set({ error }),
+});
+
+// Export the store with persistence
 export const useAdminStore = create<AdminState>()(
   persist(
-    (set) => ({
-      isAdmin: false,
-      isAdminModalOpen: false,
-      error: null,
-      checkAdminStatus: (email: string) => {
-        const isAdmin = ADMIN_EMAILS.includes(email);
-        set({ isAdmin });
-        return isAdmin;
-      },
-      setIsAdmin: (value) => set({ isAdmin: value }),
-      setIsAdminModalOpen: (value) => set({ isAdminModalOpen: value }),
-      setError: (error) => set({ error }),
-    }),
+    createAdminStore,
     {
       name: 'admin-storage',
       getStorage: () => localStorage,
+      partialize: (state) => ({
+        isAdmin: state.isAdmin,
+      }),
     }
   )
 );

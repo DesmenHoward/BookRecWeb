@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Mail, Eye, EyeOff } from 'lucide-react';
 import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
+import Footer from '../components/Footer';
 
 export default function Login() {
   const { login, signUp, error: authError, clearError, isLoading, isAuthenticated } = useAuthStore();
@@ -64,127 +65,119 @@ export default function Login() {
   const error = localError || authError;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <div className="flex justify-center">
-            <img src="/favicon.PNG" alt="BookRec Logo" className="w-[240px] h-[240px] rounded-3xl" />
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-grow flex items-center justify-center px-4">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <div className="flex justify-center">
+              <img src="/favicon.PNG" alt="BookRec Logo" className="w-[240px] h-[240px] rounded-3xl" />
+            </div>
+            <h2 className="mt-6 text-3xl font-bold text-text">
+              {isForgotPassword ? 'Reset Password' : (isSignUp ? 'Create Account' : 'Welcome Back')}
+            </h2>
+            <p className="mt-2 text-text-light">
+              {isForgotPassword ? 'Enter your email to receive a reset link' : 'Discover your next favorite read'}
+            </p>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-text">
-            {isForgotPassword ? 'Reset Password' : (isSignUp ? 'Create Account' : 'Welcome Back')}
-          </h2>
-          <p className="mt-2 text-text-light">
-            {isForgotPassword ? 'Enter your email to receive a reset link' : 'Discover your next favorite read'}
-          </p>
-        </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleAuth}>
-          {error && (
-            <div className="bg-red-100 text-red-700 p-3 rounded-lg text-center">
-              {error}
-            </div>
-          )}
-          {resetEmailSent && (
-            <div className="bg-green-100 text-green-700 p-3 rounded-lg text-center">
-              Password reset email sent! Please check your inbox.
-            </div>
-          )}
+          <form className="mt-8 space-y-6" onSubmit={handleAuth}>
+            {error && (
+              <div className="bg-red-100 text-red-700 p-3 rounded-lg text-center">
+                {error}
+              </div>
+            )}
+            {resetEmailSent && (
+              <div className="bg-green-100 text-green-700 p-3 rounded-lg text-center">
+                Password reset email sent! Please check your inbox.
+              </div>
+            )}
 
-          <div className="space-y-4">
-            <div className="relative">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="peer w-full px-3 py-3 border rounded-lg focus:ring-1 focus:ring-accent focus:outline-none pt-6"
-                placeholder=" "
-                disabled={isLoading}
-              />
-              <label className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none transition-all duration-200 peer-focus:text-xs peer-focus:top-3.5 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:top-3.5">
-                Email
-              </label>
-              <Mail className="absolute right-3 top-1/2 -translate-y-1/2 text-text-light" size={20} />
-            </div>
-
-            {!isForgotPassword && (
+            <div className="space-y-4">
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="peer w-full px-3 py-3 border rounded-lg focus:ring-1 focus:ring-accent focus:outline-none pt-6"
                   placeholder=" "
                   disabled={isLoading}
                 />
-                <label className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none transition-all duration-200 peer-focus:text-xs peer-focus:top-3.5 peer-[:not(:placeholder-shown)]:text-xs peer-[:not(:placeholder-shown)]:top-3.5">
-                  Password
+                <label className="absolute text-sm text-gray-500 duration-150 transform -translate-y-3 scale-75 top-4 z-10 origin-[0] left-3 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-3">
+                  Email address
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-light"
-                  disabled={isLoading}
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
+                <Mail className="absolute right-3 top-3.5 h-5 w-5 text-gray-400" />
               </div>
-            )}
-          </div>
 
-          <div className="flex items-center justify-between">
-            {!isForgotPassword ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsForgotPassword(true);
-                    setPassword('');
-                    clearError();
-                    setResetEmailSent(false);
-                  }}
-                  className="text-accent hover:text-accent-dark text-sm"
-                  disabled={isLoading}
-                >
-                  Forgot password?
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(!isSignUp);
-                    setEmail('');
-                    setPassword('');
-                    clearError();
-                  }}
-                  className="text-accent hover:text-accent-dark text-sm"
-                  disabled={isLoading}
-                >
-                  {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-                </button>
-              </>
-            ) : (
+              {!isForgotPassword && (
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="peer w-full px-3 py-3 border rounded-lg focus:ring-1 focus:ring-accent focus:outline-none pt-6"
+                    placeholder=" "
+                    disabled={isLoading}
+                  />
+                  <label className="absolute text-sm text-gray-500 duration-150 transform -translate-y-3 scale-75 top-4 z-10 origin-[0] left-3 peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-75 peer-focus:-translate-y-3">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3.5"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-accent hover:bg-accent-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Processing...' : (isForgotPassword ? 'Send Reset Link' : (isSignUp ? 'Sign Up' : 'Sign In'))}
+              </button>
+            </div>
+          </form>
+
+          <div className="text-center space-y-2">
+            {!isForgotPassword && (
               <button
                 type="button"
                 onClick={() => {
-                  setIsForgotPassword(false);
+                  setIsSignUp(!isSignUp);
+                  setLocalError(null);
                   clearError();
-                  setResetEmailSent(false);
                 }}
-                className="text-accent hover:text-accent-dark text-sm"
-                disabled={isLoading}
+                className="text-accent hover:text-accent-dark"
               >
-                Back to Sign In
+                {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setIsForgotPassword(!isForgotPassword);
+                setLocalError(null);
+                clearError();
+                setResetEmailSent(false);
+              }}
+              className="block mx-auto text-accent hover:text-accent-dark"
+            >
+              {isForgotPassword ? 'Back to login' : 'Forgot your password?'}
+            </button>
           </div>
-
-          <button
-            type="submit"
-            className="w-full py-3 px-4 bg-accent text-white rounded-lg hover:bg-accent-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent disabled:opacity-50"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Please wait...' : (isForgotPassword ? 'Send Reset Link' : (isSignUp ? 'Sign Up' : 'Sign In'))}
-          </button>
-        </form>
+        </div>
+      </div>
+      <div className="fixed bottom-0 left-0 right-0 z-50">
+        <Footer />
       </div>
     </div>
   );

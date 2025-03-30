@@ -1,12 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Book } from '../types/book';
-import { getInitialBookList, getBookRecommendations, convertGoogleBook } from '../utils/googleBooks';
+import { getInitialBookList, getBookRecommendations, searchBooks as searchGoogleBooks } from '../utils/googleBooks';
 import { firestore } from '../firebase/config';
-import { doc, updateDoc, arrayUnion, getDoc, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { useAuthStore } from './authStore';
-import axios from 'axios';
-import { API_BASE_URL, API_KEY } from '../config/env';
+import { storeBooks, getAllBooks, storeBook } from '../utils/bookStorage';
 
 interface BookState {
   books: Book[];
@@ -34,7 +33,6 @@ interface BookState {
   loadUserData: () => Promise<void>;
   loadOtherUserData: (userId: string) => Promise<void>;
   searchBooks: (query: string) => Promise<Book[]>;
-  saveBookToStorage: (book: Book) => Promise<void>;
 }
 
 export const useBookStore = create<BookState>()(
@@ -53,122 +51,27 @@ export const useBookStore = create<BookState>()(
       currentGenreIndex: 0,
       selectedGenres: [],
 
-      loadUserData: async () => {
-        const { user } = useAuthStore.getState();
-        console.log('Loading user data...', { user });
-
-        try {
-          set({ isLoading: true });
-          
-          // Clear previous state when loading new user data
-          set({ topThree: [], favorites: [], favoriteGenres: {}, userNickname: null });
-          
-          // Load data from Firestore if user is logged in
-          if (user) {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            const userDoc = await getDoc(userDocRef);
-            
-            if (userDoc.exists()) {
-              const data = userDoc.data();
-              console.log('Loaded data from Firestore:', data);
-              
-              // Validate and set the top three from Firestore
-              if (Array.isArray(data.topThree) && data.topThree.every(book => 
-                book && book.id && book.title && book.author && book.coverUrl)) {
-                set({ topThree: data.topThree });
-                // Update localStorage with Firestore data
-                localStorage.setItem(`userTopThree_${user.uid}`, JSON.stringify(data.topThree));
-              }
-              
-              // Set other user data
-              set({
-                favorites: data.favorites || [],
-                favoriteGenres: data.favoriteGenres || {},
-                userNickname: data.nickname || null
-              });
-              
-              // Update localStorage with favorites
-              localStorage.setItem(`userFavorites_${user.uid}`, JSON.stringify(data.favorites || []));
-            }
-          }
-        } catch (error) {
-          console.error('Error loading user data:', error);
-          set({ error: 'Failed to load user data' });
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-
-      loadOtherUserData: async (userId: string) => {
-        try {
-          set({ isLoading: true });
-          
-          // Clear previous state when loading other user's data
-          set({ topThree: [], favorites: [], favoriteGenres: {}, userNickname: null });
-          
-          const userDocRef = doc(firestore, 'users', userId);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            console.log('Loaded other user data from Firestore:', data);
-            
-            // Only set the data we want to show from other users
-            set({
-              topThree: data.topThree || [],
-              userNickname: data.nickname || null
-            });
-          }
-        } catch (error) {
-          console.error('Error loading other user data:', error);
-          set({ error: 'Failed to load user data' });
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-
       initializeBooks: async (selectedGenres = []) => {
-        const { books } = get();
-        if (books.length > 0) return;
-
         try {
           set({ isLoading: true, error: null });
-          let newBooks: Book[] = [];
-
-          // First, try to get books from local storage
-          const storedBooks = JSON.parse(localStorage.getItem('allStoredBooks') || '[]');
-          const storedByGenre = JSON.parse(localStorage.getItem('storedBooksByGenre') || '{}');
           
-          // Get stored books for selected genres
-          const storedForGenres = selectedGenres.flatMap(genre => storedByGenre[genre] || []);
+          // Try to get books from storage first
+          let books = await getAllBooks({ genres: selectedGenres, limit: 20 });
           
-          // Filter out duplicates and ensure we have enough books
-          const uniqueStored = Array.from(new Set([...storedForGenres, ...storedBooks]))
-            .filter((book: Book) => selectedGenres.length === 0 || 
-              book.genres?.some(genre => selectedGenres.includes(genre)));
-
-          // If we have enough stored books, use them
-          if (uniqueStored.length >= 10) {
-            newBooks = uniqueStored.slice(0, 20); // Get 20 books to start
-          } else {
-            // If we don't have enough stored books, fetch from API
+          // If we don't have enough books, fetch from API
+          if (books.length < 10) {
             const apiBooks = await getInitialBookList(selectedGenres);
             
-            // Save new books to storage
-            for (const book of apiBooks) {
-              await get().saveBookToStorage(book);
-            }
+            // Store the new books
+            await storeBooks(apiBooks);
             
-            // Combine stored and API books, removing duplicates
-            const allBooks = [...uniqueStored, ...apiBooks];
-            const uniqueBooks = Array.from(
-              new Map(allBooks.map(book => [book.id, book])).values()
-            );
-            newBooks = uniqueBooks.slice(0, 20);
+            // Get updated book list from storage
+            books = await getAllBooks({ genres: selectedGenres, limit: 20 });
           }
-
-          set({ books: newBooks, isLoading: false });
+          
+          set({ books, selectedGenres, isLoading: false });
         } catch (error: any) {
+          console.error('Error initializing books:', error);
           set({ error: error.message, isLoading: false });
         }
       },
@@ -178,88 +81,71 @@ export const useBookStore = create<BookState>()(
         
         try {
           set({ isLoading: true, error: null });
-          let newBooks: Book[] = [];
-
-          // Get all stored books
-          const storedBooks = JSON.parse(localStorage.getItem('allStoredBooks') || '[]');
-          const storedByGenre = JSON.parse(localStorage.getItem('storedBooksByGenre') || '{}');
           
-          // Get stored books for selected genres
-          const storedForGenres = selectedGenres.flatMap(genre => storedByGenre[genre] || []);
-          
-          // Combine and filter out duplicates and already shown books
+          // Get more books from storage, excluding ones we already have
           const existingIds = new Set(books.map(book => book.id));
-          const uniqueStored = Array.from(new Set([...storedForGenres, ...storedBooks]))
-            .filter((book: Book) => 
-              !existingIds.has(book.id) && 
-              (selectedGenres.length === 0 || book.genres?.some(genre => selectedGenres.includes(genre)))
-            );
-
-          // If we have enough unused stored books, use them
-          if (uniqueStored.length >= 10) {
-            newBooks = uniqueStored.slice(0, 10);
-          } else {
-            // If we don't have enough stored books, fetch from API
+          const moreBooks = (await getAllBooks({ 
+            genres: selectedGenres, 
+            limit: 20 
+          })).filter(book => !existingIds.has(book.id));
+          
+          // If we don't have enough new books, fetch from API
+          if (moreBooks.length < 5) {
             const apiBooks = await getInitialBookList(selectedGenres);
             
-            // Save new books to storage
-            for (const book of apiBooks) {
-              await get().saveBookToStorage(book);
-            }
+            // Store the new books
+            await storeBooks(apiBooks);
             
-            // Filter out books we've already shown
-            const uniqueApiBooks = apiBooks.filter(book => !existingIds.has(book.id));
-            
-            // Combine with any remaining stored books
-            newBooks = [...uniqueStored, ...uniqueApiBooks].slice(0, 10);
+            // Add new books that we don't already have
+            const newApiBooks = apiBooks.filter(book => !existingIds.has(book.id));
+            moreBooks.push(...newApiBooks);
           }
-
+          
+          // Update books list
           set({ 
-            books: [...books, ...newBooks], 
+            books: [...books, ...moreBooks.slice(0, 10)],
             isLoading: false 
           });
         } catch (error: any) {
+          console.error('Error loading more books:', error);
           set({ error: error.message, isLoading: false });
         }
       },
 
-      swipeBook: (liked: boolean) => {
+      swipeBook: async (liked: boolean) => {
         const { books, currentBookIndex, swipedBooks, favoriteGenres } = get();
         const currentBook = books[currentBookIndex];
         
-        if (currentBook) {
-          // Update swipedBooks with timestamp
-          const newSwipedBooks = [
-            ...swipedBooks, 
-            { 
-              bookId: currentBook.id, 
-              liked, 
-              timestamp: Date.now() 
-            }
-          ];
-
-          // Update genre weights if liked
-          const newFavoriteGenres = { ...favoriteGenres };
-          if (liked && currentBook.genres) {
-            currentBook.genres.forEach(genre => {
-              newFavoriteGenres[genre] = (newFavoriteGenres[genre] || 0) + 1;
-            });
-          }
-
-          set({
-            currentBookIndex: currentBookIndex + 1,
-            swipedBooks: newSwipedBooks,
-            favoriteGenres: newFavoriteGenres
+        if (!currentBook) return;
+        
+        // Update swipe history
+        const newSwipedBooks = [
+          ...swipedBooks,
+          { bookId: currentBook.id, liked, timestamp: Date.now() }
+        ];
+        
+        // Update favorite genres if liked
+        const newFavoriteGenres = { ...favoriteGenres };
+        if (liked && currentBook.genres) {
+          currentBook.genres.forEach(genre => {
+            newFavoriteGenres[genre] = (newFavoriteGenres[genre] || 0) + 1;
           });
-
-          if (liked) {
-            get().addToFavorites(currentBook);
-          }
-
-          // Generate recommendations after every 3 swipes
-          if (newSwipedBooks.length % 3 === 0) {
-            get().generateRecommendations(5);
-          }
+        }
+        
+        // Store the book if liked
+        if (liked) {
+          await storeBook(currentBook);
+        }
+        
+        set({
+          currentBookIndex: currentBookIndex + 1,
+          swipedBooks: newSwipedBooks,
+          favoriteGenres: newFavoriteGenres
+        });
+        
+        // Load more books if needed
+        if (currentBookIndex >= books.length - 5) {
+          await get().loadMoreBooks();
         }
       },
 
@@ -269,21 +155,22 @@ export const useBookStore = create<BookState>()(
         try {
           set({ isLoading: true, error: null });
           
-          // Get the actual book objects for swiped books
-          const swipedBookObjects = swipedBooks
+          // Get liked books
+          const likedBookIds = swipedBooks
             .filter(swipe => swipe.liked)
-            .map(swipe => books.find(book => book.id === swipe.bookId))
-            .filter((book): book is Book => book !== undefined);
+            .map(swipe => swipe.bookId);
           
-          const recommendations = await getBookRecommendations(swipedBookObjects);
+          const likedBooks = books.filter(book => likedBookIds.includes(book.id));
           
-          // Save recommended books to storage
-          for (const book of recommendations) {
-            await get().saveBookToStorage(book);
-          }
+          // Get recommendations
+          const recommendations = await getBookRecommendations(likedBooks);
+          
+          // Store recommendations
+          await storeBooks(recommendations);
           
           set({ recommendations: recommendations.slice(0, limit), isLoading: false });
         } catch (error: any) {
+          console.error('Error generating recommendations:', error);
           set({ error: error.message, isLoading: false });
         }
       },
@@ -420,10 +307,97 @@ export const useBookStore = create<BookState>()(
         }
       },
 
+      loadUserData: async () => {
+        const { user } = useAuthStore.getState();
+        console.log('Loading user data...', { user });
+
+        try {
+          set({ isLoading: true });
+          
+          // Clear previous state when loading new user data
+          set({ topThree: [], favorites: [], favoriteGenres: {}, userNickname: null });
+          
+          // Load data from Firestore if user is logged in
+          if (user) {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
+            
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              console.log('Loaded data from Firestore:', data);
+              
+              // Validate and set the top three from Firestore
+              if (Array.isArray(data.topThree) && data.topThree.every(book => 
+                book && book.id && book.title && book.author && book.coverUrl)) {
+                set({ topThree: data.topThree });
+                // Update localStorage with Firestore data
+                localStorage.setItem(`userTopThree_${user.uid}`, JSON.stringify(data.topThree));
+              }
+              
+              // Set other user data
+              set({
+                favorites: data.favorites || [],
+                favoriteGenres: data.favoriteGenres || {},
+                userNickname: data.nickname || null
+              });
+              
+              // Update localStorage with favorites
+              localStorage.setItem(`userFavorites_${user.uid}`, JSON.stringify(data.favorites || []));
+            }
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+          set({ error: 'Failed to load user data' });
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      loadOtherUserData: async (userId: string) => {
+        try {
+          set({ isLoading: true });
+          
+          // Clear previous state when loading other user's data
+          set({ topThree: [], favorites: [], favoriteGenres: {}, userNickname: null });
+          
+          const userDocRef = doc(firestore, 'users', userId);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            console.log('Loaded other user data from Firestore:', data);
+            
+            // Only set the data we want to show from other users
+            set({
+              topThree: data.topThree || [],
+              userNickname: data.nickname || null
+            });
+          }
+        } catch (error) {
+          console.error('Error loading other user data:', error);
+          set({ error: 'Failed to load user data' });
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
       searchBooks: async (query: string): Promise<Book[]> => {
         try {
-          // First check stored books for matches
-          const storedBooks = JSON.parse(localStorage.getItem('allStoredBooks') || '[]');
+          console.log('bookStore: Starting search for:', query);
+          set({ isLoading: true });
+          
+          // Search Google Books API directly
+          console.log('bookStore: Calling Google Books API...');
+          const apiBooks = await searchGoogleBooks(query);
+          console.log('bookStore: API returned:', apiBooks);
+          
+          // Store new books for future use
+          if (apiBooks.length > 0) {
+            await storeBooks(apiBooks);
+          }
+          
+          // Also check stored books for additional matches
+          const storedBooks = await getAllBooks();
           const queryLower = query.toLowerCase();
           
           const matchingStored = storedBooks.filter((book: Book) => 
@@ -431,97 +405,34 @@ export const useBookStore = create<BookState>()(
             book.author.toLowerCase().includes(queryLower) ||
             book.genres?.some(genre => genre.toLowerCase().includes(queryLower))
           );
-
-          // If we have enough matching stored books, use them
-          if (matchingStored.length >= 5) {
-            return matchingStored.slice(0, 10);
-          }
-
-          // Otherwise, search API
-          const response = await axios.get(`${API_BASE_URL}/volumes`, {
-            params: {
-              q: query,
-              key: API_KEY,
-              maxResults: 10
-            }
-          });
-
-          const apiBooks = response.data.items.map(convertGoogleBook);
           
-          // Save new books to storage
-          for (const book of apiBooks) {
-            await get().saveBookToStorage(book);
-          }
-          
-          // Combine results, prioritizing stored matches
-          const allResults = [...matchingStored, ...apiBooks];
+          // Combine results, prioritizing API results and removing duplicates
+          const allResults = [...apiBooks, ...matchingStored];
           const uniqueResults = Array.from(
             new Map(allResults.map(book => [book.id, book])).values()
           );
           
-          return uniqueResults.slice(0, 10);
+          console.log('bookStore: Final results:', uniqueResults);
+          return uniqueResults;
         } catch (error) {
-          console.error('Error searching books:', error);
+          console.error('bookStore: Error searching books:', error);
           
           // If API fails, return any matching stored books we have
           try {
-            const storedBooks = JSON.parse(localStorage.getItem('allStoredBooks') || '[]');
+            const storedBooks = await getAllBooks();
             const queryLower = query.toLowerCase();
             
-            return storedBooks
-              .filter((book: Book) => 
-                book.title.toLowerCase().includes(queryLower) ||
-                book.author.toLowerCase().includes(queryLower) ||
-                book.genres?.some(genre => genre.toLowerCase().includes(queryLower))
-              )
-              .slice(0, 10);
+            return storedBooks.filter((book: Book) => 
+              book.title.toLowerCase().includes(queryLower) ||
+              book.author.toLowerCase().includes(queryLower) ||
+              book.genres?.some(genre => genre.toLowerCase().includes(queryLower))
+            );
           } catch (storageError) {
-            console.error('Error searching stored books:', storageError);
+            console.error('bookStore: Error searching stored books:', storageError);
             return [];
           }
-        }
-      },
-
-      saveBookToStorage: async (book: Book) => {
-        const { user } = useAuthStore.getState();
-        
-        // Save to local storage first
-        try {
-          const storedBooks = JSON.parse(localStorage.getItem('storedBooksByGenre') || '{}');
-          const storedAllBooks = JSON.parse(localStorage.getItem('allStoredBooks') || '[]');
-          
-          // Save to genre-specific storage
-          book.genres?.forEach(genre => {
-            if (!storedBooks[genre]) {
-              storedBooks[genre] = [];
-            }
-            // Check if book already exists in this genre
-            if (!storedBooks[genre].some((b: Book) => b.id === book.id)) {
-              storedBooks[genre].push(book);
-            }
-          });
-          
-          // Save to all books storage
-          if (!storedAllBooks.some((b: Book) => b.id === book.id)) {
-            storedAllBooks.push(book);
-          }
-          
-          localStorage.setItem('storedBooksByGenre', JSON.stringify(storedBooks));
-          localStorage.setItem('allStoredBooks', JSON.stringify(storedAllBooks));
-        } catch (error) {
-          console.error('Error saving book to local storage:', error);
-        }
-
-        // Then save to Firestore if user is logged in
-        if (user) {
-          try {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            await updateDoc(userDocRef, {
-              savedBooks: arrayUnion(book)
-            });
-          } catch (error) {
-            console.error('Error saving book to Firestore:', error);
-          }
+        } finally {
+          set({ isLoading: false });
         }
       },
     }),
@@ -529,8 +440,11 @@ export const useBookStore = create<BookState>()(
       name: 'book-store',
       partialize: (state) => ({
         swipedBooks: state.swipedBooks,
-        favoriteGenres: state.favoriteGenres,
+        favorites: state.favorites,
         topThree: state.topThree,
+        favoriteGenres: state.favoriteGenres,
+        userNickname: state.userNickname,
+        selectedGenres: state.selectedGenres
       })
     }
   )

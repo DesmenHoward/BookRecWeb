@@ -5,10 +5,17 @@ const STORAGE_KEYS = {
   BOOKS: '@bookrec/books',
   GENRE_BOOKS: '@bookrec/genre_books',
   CACHE_TIMESTAMP: '@bookrec/cache_timestamp',
-  GENRE_CACHE: '@bookrec/genre_cache'
+  GENRE_CACHE: '@bookrec/genre_cache',
+  GENRE_META: '@bookrec/genre_meta'
 };
 
 const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+
+interface GenreMeta {
+  lastUpdated: number;
+  totalBooks: number;
+  avgRating: number;
+}
 
 // Store books with genre mapping and caching
 export const storeBooks = async (books: Book[]) => {
@@ -36,23 +43,50 @@ export const storeBooks = async (books: Book[]) => {
     const genreMappingJson = localStorage.getItem(STORAGE_KEYS.GENRE_BOOKS);
     const genreMapping = genreMappingJson ? JSON.parse(genreMappingJson) : {};
     
-    // Add books to their respective genre lists
+    // Get genre metadata
+    const genreMetaJson = localStorage.getItem(STORAGE_KEYS.GENRE_META);
+    const genreMeta = genreMetaJson ? JSON.parse(genreMetaJson) : {};
+    
+    // Add books to their respective genre lists and update metadata
     books.forEach(book => {
+      if (!book.genres) return;
+      
       book.genres.forEach(genre => {
+        // Initialize genre mapping if it doesn't exist
         if (!genreMapping[genre]) {
           genreMapping[genre] = {
             bookIds: [],
             lastUpdated: Date.now()
           };
         }
+        
+        // Add book to genre if not already present
         if (!genreMapping[genre].bookIds.includes(book.id)) {
           genreMapping[genre].bookIds.push(book.id);
           genreMapping[genre].lastUpdated = Date.now();
+          
+          // Update genre metadata
+          if (!genreMeta[genre]) {
+            genreMeta[genre] = {
+              lastUpdated: Date.now(),
+              totalBooks: 0,
+              avgRating: 0
+            };
+          }
+          
+          const meta = genreMeta[genre];
+          meta.totalBooks++;
+          if (book.rating) {
+            meta.avgRating = (meta.avgRating * (meta.totalBooks - 1) + book.rating) / meta.totalBooks;
+          }
+          meta.lastUpdated = Date.now();
         }
       });
     });
     
+    // Save updated genre mapping and metadata
     localStorage.setItem(STORAGE_KEYS.GENRE_BOOKS, JSON.stringify(genreMapping));
+    localStorage.setItem(STORAGE_KEYS.GENRE_META, JSON.stringify(genreMeta));
     
     return true;
   } catch (error) {
@@ -106,8 +140,20 @@ export const getAllBooks = async (options?: {
       books = booksJson ? JSON.parse(booksJson) : [];
     }
     
-    // Shuffle books for variety
-    books = [...books].sort(() => Math.random() - 0.5);
+    // Sort books by rating and recency
+    books.sort((a, b) => {
+      // First by rating (if available)
+      if (a.rating && b.rating) {
+        if (a.rating !== b.rating) {
+          return b.rating - a.rating;
+        }
+      }
+      // Then by published year (if available)
+      if (a.publishedYear && b.publishedYear) {
+        return b.publishedYear - a.publishedYear;
+      }
+      return 0;
+    });
     
     // Apply limit if specified
     if (options?.limit) {
@@ -141,6 +187,18 @@ export const getBookById = async (bookId: string): Promise<Book | null> => {
 // Store a single book
 export const storeBook = async (book: Book) => {
   return storeBooks([book]);
+};
+
+// Get genre metadata
+export const getGenreMeta = async (genre: string): Promise<GenreMeta | null> => {
+  try {
+    const metaJson = localStorage.getItem(STORAGE_KEYS.GENRE_META);
+    const meta = metaJson ? JSON.parse(metaJson) : {};
+    return meta[genre] || null;
+  } catch (error) {
+    console.error('Error getting genre metadata:', error);
+    return null;
+  }
 };
 
 // Clear expired cache for specific genres

@@ -30,66 +30,35 @@ function cleanDescription(text: string): string {
   return text;
 }
 
-// Helper function to detect if text is likely English
-function isEnglishText(text: string): boolean {
-  // Basic English character pattern
-  const englishPattern = /^[A-Za-z0-9\s.,!?'"-:;()&]+$/;
-  
-  // Sample the first 100 characters for performance
-  const sample = text.slice(0, 100);
-  
-  // Check if the text matches English pattern and contains common English words
-  const commonEnglishWords = ['the', 'and', 'in', 'of', 'to', 'a'];
-  const words = text.toLowerCase().split(/\s+/);
-  const hasEnglishWords = commonEnglishWords.some(word => words.includes(word));
-  
-  return englishPattern.test(sample) && hasEnglishWords;
-}
-
 function getCoverUrl(imageLinks?: { thumbnail?: string; smallThumbnail?: string }, size: 'small' | 'medium' | 'large' = 'medium'): string {
   const defaultCover = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-1.2.1&auto=format&fit=crop';
   
-  if (!imageLinks) {
-    return `${defaultCover}&w=${size === 'small' ? 400 : size === 'medium' ? 600 : 800}&q=80`;
+  if (!imageLinks) return defaultCover;
+
+  // Get the best available image URL
+  let imageUrl = imageLinks.thumbnail || imageLinks.smallThumbnail;
+  if (!imageUrl) return defaultCover;
+
+  // Convert from HTTP to HTTPS if necessary
+  imageUrl = imageUrl.replace(/^http:/, 'https:');
+
+  // Remove any size modifiers
+  imageUrl = imageUrl.replace(/&edge=curl/g, '')
+                    .replace(/&zoom=\d+/g, '');
+
+  // Add size modifier based on requested size
+  switch (size) {
+    case 'small':
+      imageUrl = imageUrl.replace(/zoom=\d+/, 'zoom=1');
+      break;
+    case 'large':
+      imageUrl = imageUrl.replace(/zoom=\d+/, 'zoom=3');
+      break;
+    default: // medium
+      imageUrl = imageUrl.replace(/zoom=\d+/, 'zoom=2');
   }
-  
-  try {
-    const secureUrl = (url: string) => {
-      // Convert to HTTPS and remove edge=curl parameter
-      let processedUrl = url
-        .replace('http://', 'https://')
-        .replace('&edge=curl', '');
 
-      // Get dimensions based on size
-      const dimensions = {
-        small: { w: 400, h: 600 },
-        medium: { w: 600, h: 900 },
-        large: { w: 800, h: 1200 }
-      }[size];
-
-      // Upgrade image quality and size
-      processedUrl = processedUrl
-        .replace('zoom=1', 'zoom=3')  // Higher quality zoom
-        .replace(/w=\d+/, `w=${dimensions.w}`)
-        .replace(/h=\d+/, `h=${dimensions.h}`)
-        .replace(/&fife=[^&]*/, `&fife=w${dimensions.w}-h${dimensions.h}`);
-
-      return processedUrl;
-    };
-    
-    // Try to get the best quality image available
-    if (imageLinks.thumbnail) {
-      return secureUrl(imageLinks.thumbnail);
-    }
-    
-    if (imageLinks.smallThumbnail) {
-      return secureUrl(imageLinks.smallThumbnail);
-    }
-  } catch (error) {
-    console.error('Error processing cover URL:', error);
-  }
-  
-  return `${defaultCover}&w=${size === 'small' ? 400 : size === 'medium' ? 600 : 800}&q=80`;
+  return imageUrl;
 }
 
 // Genre mapping for Google Books API
@@ -138,17 +107,16 @@ const GENRE_SEARCH_TERMS: Record<string, string[]> = {
 
 export function convertGoogleBook(googleBook: GoogleBook): Book | null {
   try {
-    if (!googleBook?.volumeInfo) return null;
-
-    const { volumeInfo } = googleBook;
-    
-    if (!volumeInfo.title || !volumeInfo.authors?.length) {
+    if (!googleBook?.volumeInfo) {
+      console.log('Invalid book data:', googleBook);
       return null;
     }
 
-    // Skip books without English descriptions
-    const description = cleanDescription(volumeInfo.description);
-    if (!isEnglishText(description)) {
+    const { volumeInfo } = googleBook;
+    
+    // Only require title, allow missing authors
+    if (!volumeInfo.title) {
+      console.log('Book missing title:', googleBook.id);
       return null;
     }
 
@@ -173,12 +141,15 @@ export function convertGoogleBook(googleBook: GoogleBook): Book | null {
       }
     }
 
+    // Clean description but don't validate language
+    const description = cleanDescription(volumeInfo.description);
+
     return {
       id: googleBook.id,
       title: volumeInfo.title,
-      author: volumeInfo.authors[0],
+      author: volumeInfo.authors?.[0] || 'Unknown Author',
       description,
-      coverUrl: coverImages.medium, // Keep coverUrl for backward compatibility
+      coverUrl: coverImages.medium,
       coverImages,
       genres: volumeInfo.categories || ['Fiction'],
       publishedYear: volumeInfo.publishedDate ? 
@@ -208,7 +179,7 @@ async function fetchBooksForGenre(genre: string, maxResults: number = 40): Promi
         langRestrict: 'en',
         orderBy: 'relevance',
         key: API_KEY,
-        fields: 'items(id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating))',
+        fields: 'items(id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating,industryIdentifiers))',
         printType: 'books'
       }
     });
@@ -216,14 +187,7 @@ async function fetchBooksForGenre(genre: string, maxResults: number = 40): Promi
     if (response.data?.items) {
       const books = response.data.items
         .map(convertGoogleBook)
-        .filter((book: Book | null) => 
-          book !== null &&
-          book.description.length > 100 &&
-          (book.genres.some(g => 
-            g.toLowerCase().includes(term) || 
-            searchTerms.some(st => g.toLowerCase().includes(st))
-          ))
-        );
+        .filter((book: Book | null): book is Book => book !== null);
 
       allBooks.push(...books);
     }
@@ -350,7 +314,7 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
             langRestrict: 'en',
             orderBy: 'relevance',
             key: API_KEY,
-            fields: 'items(id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating))',
+            fields: 'items(id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating,industryIdentifiers))',
             printType: 'books'
           }
         });
@@ -358,14 +322,8 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
         if (response.data?.items) {
           const authorBooks = response.data.items
             .map(convertGoogleBook)
-            .filter((book: Book | null) => 
-              book !== null &&
-              !likedBooks.some(liked => liked.id === book.id) &&
-              !recommendations.some(rec => rec.id === book.id) &&
-              book.description.length > 100 &&
-              book.genres.some(g => likedGenres.includes(g))
-            );
-          
+            .filter((book: Book | null): book is Book => book !== null);
+
           recommendations.push(...authorBooks);
         }
       }
@@ -401,10 +359,12 @@ export async function getBookRecommendations(likedBooks: Book[]): Promise<Book[]
 
 export async function searchBooks(query: string): Promise<Book[]> {
   if (!query?.trim() || !API_KEY) {
+    console.log('searchBooks: Invalid query or missing API key', { query, hasApiKey: !!API_KEY });
     return [];
   }
 
   try {
+    console.log('searchBooks: Making API request for:', query);
     const response = await axios.get(`${API_BASE_URL}/volumes`, {
       params: {
         q: query,
@@ -412,26 +372,30 @@ export async function searchBooks(query: string): Promise<Book[]> {
         langRestrict: 'en',
         orderBy: 'relevance',
         key: API_KEY,
-        fields: 'items(id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating))',
+        fields: 'items(id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating,industryIdentifiers))',
         printType: 'books'
       }
     });
     
-    if (!response.data?.items) return [];
+    console.log('searchBooks: Raw API response:', response.data);
+    
+    if (!response.data?.items) {
+      console.log('searchBooks: No items in response');
+      return [];
+    }
     
     const books = response.data.items
       .map(convertGoogleBook)
-      .filter((book: Book | null) => 
-        book !== null &&
-        book.description.length > 100
-      );
+      .filter((book: Book | null): book is Book => book !== null);
+    
+    console.log('searchBooks: Processed books:', books);
     
     // Store search results
     await storage.storeBooks(books);
     
     return books;
   } catch (error: any) {
-    console.error('Error searching books:', error);
+    console.error('searchBooks: API Error:', error.response?.data || error.message);
     throw new Error('Failed to search books');
   }
 }
@@ -450,7 +414,7 @@ export async function getBookDetails(bookId: string): Promise<Book | null> {
     const response = await axios.get(`${API_BASE_URL}/volumes/${bookId}`, {
       params: {
         key: API_KEY,
-        fields: 'id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating)'
+        fields: 'id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating,industryIdentifiers)'
       }
     });
     

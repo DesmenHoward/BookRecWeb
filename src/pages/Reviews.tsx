@@ -97,48 +97,48 @@ export default function Reviews() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
-      <div className="bg-surface rounded-xl p-6">
-        <h1 className="text-2xl font-bold text-text mb-6">Book Reviews</h1>
+    <div className="max-w-4xl mx-auto py-4 sm:py-8 px-3 sm:px-4">
+      <div className="bg-surface rounded-lg sm:rounded-xl p-3 sm:p-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-text mb-4 sm:mb-6">Book Reviews</h1>
         
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+          <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm sm:text-base">
             {error}
           </div>
         )}
         
         {/* Search Bar */}
-        <div className="mb-8">
-          <div className="flex gap-2">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex gap-1 sm:gap-2">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search for a book to read or write reviews..."
-              className="flex-1 px-4 py-2 rounded-lg border border-border bg-white focus:outline-none focus:ring-2 focus:ring-accent/50"
+              placeholder="Search for a book..."
+              className="flex-1 px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-lg border border-border bg-white focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
             <button
               onClick={handleSearch}
-              className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+              className="px-4 sm:px-6 py-1.5 sm:py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
             >
-              <Search size={20} />
+              <Search size={18} className="sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
         {/* My Reviews Section */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold text-text mb-4">My Reviews</h2>
+        <div className="mt-6 sm:mt-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-text mb-3 sm:mb-4">My Reviews</h2>
           {allUserReviews.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {allUserReviews.map((review) => (
-                <div key={review.id} className="p-4 bg-white rounded-lg shadow-sm">
+                <div key={review.id} className="p-3 sm:p-4 bg-white rounded-lg shadow-sm">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h3 className="font-semibold text-text">{review.bookTitle}</h3>
-                      <div className="text-text-light text-sm">
+                      <h3 className="font-semibold text-text text-sm sm:text-base">{review.bookTitle}</h3>
+                      <div className="text-text-light text-xs sm:text-sm">
                         <span>{new Date(review.createdAt).toLocaleDateString()}</span>
                         <span className="ml-2">By: <button 
                           onClick={() => handleProfileClick(review.userId)}
@@ -148,12 +148,12 @@ export default function Reviews() {
                         </button></span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       <div className="flex">
                         {[...Array(5)].map((_, i) => (
                           <span
                             key={i}
-                            className={`text-lg ${
+                            className={`text-base sm:text-lg ${
                               i < review.rating ? 'text-yellow-400' : 'text-gray-300'
                             }`}
                           >
@@ -162,7 +162,7 @@ export default function Reviews() {
                         ))}
                       </div>
                       {user?.uid === review.userId && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-1 sm:gap-2">
                           {editingReviewId === review.id ? (
                             <button
                               onClick={async () => {
@@ -174,14 +174,14 @@ export default function Reviews() {
                                   setEditingReviewId(null);
                                 }
                               }}
-                              className="text-sm px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                              className="text-xs sm:text-sm px-1.5 sm:px-2 py-0.5 sm:py-1 bg-green-500 text-white rounded hover:bg-green-600"
                             >
                               Save
                             </button>
                           ) : (
                             <button
                               onClick={() => setEditingReviewId(review.id || null)}
-                              className="text-sm px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                              className="text-xs sm:text-sm px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
                             >
                               Edit
                             </button>
@@ -193,7 +193,7 @@ export default function Reviews() {
                                 await getUserReviews(user.uid);
                               }
                             }}
-                            className="text-sm px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                            className="text-xs sm:text-sm px-1.5 sm:px-2 py-0.5 sm:py-1 bg-red-500 text-white rounded hover:bg-red-600"
                           >
                             Delete
                           </button>
@@ -203,7 +203,7 @@ export default function Reviews() {
                   </div>
                   {editingReviewId === review.id ? (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 sm:gap-2">
                         <label className="text-sm text-text-light">Rating:</label>
                         <select
                           value={review.rating}

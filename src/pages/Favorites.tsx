@@ -131,7 +131,7 @@ export default function Favorites() {
         )}
 
         {/* Favorites grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-6">
           {displayedBooks.map((book) => (
             <FavoriteCard 
               key={book.id} 
@@ -222,9 +222,9 @@ interface FavoriteCardProps {
 
 function FavoriteCard({ book, onShowDescription, onRemove }: FavoriteCardProps) {
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div className="bg-white rounded-lg sm:rounded-xl shadow overflow-hidden sm:shadow-lg">
       <div 
-        className="relative h-64 cursor-pointer"
+        className="relative h-32 sm:h-64 cursor-pointer"
         onClick={onShowDescription}
       >
         <img 
@@ -234,24 +234,24 @@ function FavoriteCard({ book, onShowDescription, onRemove }: FavoriteCardProps) 
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         
-        <div className="absolute bottom-0 left-0 right-0 p-4">
-          <h3 className="text-lg font-semibold text-white mb-1">{book.title}</h3>
-          <p className="text-white/80">by {book.author}</p>
+        <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-4">
+          <h3 className="text-sm sm:text-lg font-semibold text-white mb-0.5 sm:mb-1 line-clamp-2">{book.title}</h3>
+          <p className="text-xs sm:text-base text-white/80 line-clamp-1">by {book.author}</p>
         </div>
       </div>
 
-      <div className="p-4 flex justify-center items-center gap-2">
+      <div className="p-2 sm:p-4 flex justify-between sm:justify-center items-center gap-1 sm:gap-2">
         <ShopButton book={book} />
         <button
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
           }}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-2"
+          className="p-1.5 sm:px-4 sm:py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1 sm:gap-2"
           title="Remove from favorites"
         >
           <Trash2 className="w-4 h-4" />
-          Remove
+          <span className="hidden sm:inline">Remove</span>
         </button>
       </div>
     </div>

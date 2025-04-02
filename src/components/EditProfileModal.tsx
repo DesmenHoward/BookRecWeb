@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useUserProfileStore } from '../store/userProfileStore';
-import { X, Camera, Check } from 'lucide-react';
+import { X, Camera } from 'lucide-react';
 import ImageUploader from './ImageUploader';
 
 interface EditProfileModalProps {
@@ -12,7 +12,6 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
   const { profile, updateProfile, isLoading } = useUserProfileStore();
   const [formData, setFormData] = useState({
     displayName: '',
-    username: '',
     bio: '',
     location: '',
     socialLinks: {
@@ -27,7 +26,6 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
     if (profile) {
       setFormData({
         displayName: profile.displayName,
-        username: profile.username,
         bio: profile.bio || '',
         location: profile.location || '',
         socialLinks: {
@@ -115,20 +113,6 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
 
             <div>
               <label className="block text-sm font-medium text-text mb-1">
-                Username
-              </label>
-              <input
-                type="text"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-1 focus:ring-accent"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text mb-1">
                 Bio
               </label>
               <textarea
@@ -199,29 +183,26 @@ export default function EditProfileModal({ isOpen, onClose }: EditProfileModalPr
               </div>
             </div>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end pt-4 border-t">
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
+                className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Check size={20} />
-                )}
-                Save Changes
+                Save
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      <ImageUploader
-        isOpen={showImageUploader}
-        onClose={() => setShowImageUploader(false)}
-        onUpload={handleImageUpload}
-      />
+      {showImageUploader && (
+        <ImageUploader
+          isOpen={showImageUploader}
+          onUpload={handleImageUpload}
+          onClose={() => setShowImageUploader(false)}
+        />
+      )}
     </div>
   );
 }

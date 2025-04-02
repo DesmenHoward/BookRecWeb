@@ -45,6 +45,11 @@ export default function Profile() {
   const [showSelectBookModal, setShowSelectBookModal] = useState(false);
   const [showGenreModal, setShowGenreModal] = useState(false);
 
+  // Scroll to top when component mounts or userId changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [userId]);
+
   // Load profile and user data
   useEffect(() => {
     const loadData = async () => {
@@ -119,7 +124,6 @@ export default function Profile() {
             <div className="flex-1 space-y-2 md:space-y-0">
               <div className="flex flex-col items-center md:items-start text-center md:text-left">
                 <h1 className="text-xl md:text-2xl font-bold text-text">{profile.displayName}</h1>
-                <p className="text-text-light">Joined {profile.joinDate}</p>
               </div>
               
               {profile.bio && (
@@ -389,14 +393,12 @@ export default function Profile() {
         />
       )}
 
-      {showGenreModal && (
-        <GenreSelectionModal
-          visible={showGenreModal}
-          onClose={() => setShowGenreModal(false)}
-          onComplete={handleGenreUpdate}
-          initialGenres={selectedGenres}
-        />
-      )}
+      <GenreSelectionModal
+        visible={showGenreModal}
+        onClose={() => setShowGenreModal(false)}
+        onComplete={handleGenreUpdate}
+        initialGenres={selectedGenres}
+      />
     </div>
   );
 }

@@ -65,59 +65,89 @@ export default function SwipeableBookCard({ book, onSwipe }: SwipeableBookCardPr
             height: '100%',
             willChange: 'transform',
             transform: style.x.to(x => `translate3d(${x}px,0,0) rotate(${style.rotation.get()}deg)`),
-            touchAction: 'none'
+            touchAction: 'none',
+            perspective: '2000px'
           }}
           className="cursor-grab active:cursor-grabbing"
         >
-          <div className="relative w-full h-full bg-white rounded-2xl shadow-xl overflow-hidden">
-            <img
-              src={book.coverImages.large}
-              alt={book.title}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                const img = e.target as HTMLImageElement;
-                // Try medium size if large fails
-                if (img.src === book.coverImages.large) {
-                  img.src = book.coverImages.medium;
-                }
-                // Try small size if medium fails
-                else if (img.src === book.coverImages.medium) {
-                  img.src = book.coverImages.small;
-                }
+          <div className="relative w-full h-full bg-white rounded-2xl shadow-xl overflow-hidden group">
+            {/* Book spine shadow effect */}
+            <div
+              className="absolute inset-y-0 left-0 w-8 rounded-l-2xl transition-all duration-300 group-hover:shadow-2xl"
+              style={{
+                background: 'linear-gradient(to right, rgba(0,0,0,0.4), transparent)',
+                transform: 'translateZ(2px) translateX(-2px)',
+                transformStyle: 'preserve-3d'
               }}
             />
-            
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-            
-            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-              <h3 className="text-2xl font-bold mb-2">{book.title}</h3>
-              <p className="text-lg mb-3">by {book.author}</p>
+            <div 
+              className="w-full h-full transition-transform duration-300 transform group-hover:-translate-y-4 group-hover:rotate-2"
+              style={{
+                transformStyle: 'preserve-3d',
+                transform: 'translateZ(0)',
+                transformOrigin: 'left center',
+                boxShadow: '12px 12px 30px rgba(0,0,0,0.5), -5px 0 15px rgba(0,0,0,0.2)'
+              }}
+            >
+              <img
+                src={book.coverImages.large}
+                alt={book.title}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const img = e.target as HTMLImageElement;
+                  // Try medium size if large fails
+                  if (img.src === book.coverImages.large) {
+                    img.src = book.coverImages.medium;
+                  }
+                  // Try small size if medium fails
+                  else if (img.src === book.coverImages.medium) {
+                    img.src = book.coverImages.small;
+                  }
+                }}
+              />
               
-              <div className="flex flex-wrap gap-2 mb-4">
-                {book.genres.map((genre, index) => (
-                  <span 
-                    key={index}
-                    className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium"
+              {/* Page effect */}
+              <div
+                className="absolute inset-y-0 right-0 w-2 rounded-r-2xl bg-gray-100 transition-all duration-300"
+                style={{
+                  transform: 'translateZ(1px) translateX(-1px) rotateY(-20deg)',
+                  transformStyle: 'preserve-3d',
+                  boxShadow: '2px 0 3px rgba(0,0,0,0.1)'
+                }}
+              />
+              
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+              
+              <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                <h3 className="text-2xl font-bold mb-2 drop-shadow-lg">{book.title}</h3>
+                <p className="text-lg mb-3 drop-shadow-lg">by {book.author}</p>
+                
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {book.genres.map((genre, index) => (
+                    <span 
+                      key={index}
+                      className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium"
+                    >
+                      {genre}
+                    </span>
+                  ))}
+                </div>
+                
+                <div className="mb-4">
+                  <p className="text-sm line-clamp-3 text-white/90 mb-2">
+                    {book.description}
+                  </p>
+                  <button
+                    onClick={() => setShowDescription(true)}
+                    className="text-sm text-white/80 hover:text-white transition-colors"
                   >
-                    {genre}
-                  </span>
-                ))}
-              </div>
-              
-              <div className="mb-4">
-                <p className="text-sm line-clamp-3 text-white/90 mb-2">
-                  {book.description}
-                </p>
-                <button
-                  onClick={() => setShowDescription(true)}
-                  className="text-sm text-white/80 hover:text-white transition-colors"
-                >
-                  Read More
-                </button>
-              </div>
+                    Read More
+                  </button>
+                </div>
 
-              <div className="flex justify-center">
-                <ShopButton book={book} variant="light" />
+                <div className="flex justify-center">
+                  <ShopButton book={book} variant="light" />
+                </div>
               </div>
             </div>
           </div>

@@ -204,13 +204,45 @@ export default function Profile() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {topThree.map((book, index) => (
               <div key={book.id} className="flex flex-col items-center">
-                <div className="relative">
+                <div className="relative group" style={{ perspective: '2000px' }}>
+                  {/* Book spine shadow effect */}
+                  <div
+                    className="absolute inset-y-0 left-0 w-4 rounded-l-lg transition-all duration-300 group-hover:shadow-2xl"
+                    style={{
+                      background: 'linear-gradient(to right, rgba(0,0,0,0.4), transparent)',
+                      transform: 'translateZ(2px) translateX(-2px)',
+                      transformStyle: 'preserve-3d'
+                    }}
+                  />
                   <img 
                     src={book.coverUrl} 
                     alt={book.title} 
-                    className="w-48 h-72 object-cover rounded-lg shadow-lg"
+                    className="w-48 h-72 object-cover rounded-lg transition-all duration-300 transform hover:-translate-y-4 hover:rotate-2"
+                    style={{
+                      boxShadow: '12px 12px 30px rgba(0,0,0,0.5), -5px 0 15px rgba(0,0,0,0.2)',
+                      transform: 'translateZ(0)',
+                      transformStyle: 'preserve-3d',
+                      willChange: 'transform',
+                      transformOrigin: 'left center'
+                    }}
                   />
-                  <div className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold shadow-lg">
+                  {/* Page effect */}
+                  <div
+                    className="absolute inset-y-0 right-0 w-1 rounded-r-lg bg-gray-100 transition-all duration-300"
+                    style={{
+                      transform: 'translateZ(1px) translateX(-1px) rotateY(-20deg)',
+                      transformStyle: 'preserve-3d',
+                      boxShadow: '2px 0 3px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                  <div 
+                    className="absolute -top-3 -left-3 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold transition-transform duration-300 group-hover:scale-110"
+                    style={{
+                      boxShadow: '0 8px 16px -4px rgba(0,0,0,0.3)',
+                      transform: 'translateZ(40px)',
+                      transformStyle: 'preserve-3d'
+                    }}
+                  >
                     #{index + 1}
                   </div>
                 </div>

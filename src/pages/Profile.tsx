@@ -11,6 +11,7 @@ import EditProfileModal from '../components/EditProfileModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import AdminModal from '../components/AdminModal';
 import SelectBookModal from '../components/SelectBookModal';
+import GenreSelectionModal from '../components/GenreSelectionModal';
 import { Book } from '../types/book';
 import ShopButton from '../components/ShopButton';
 
@@ -29,7 +30,9 @@ export default function Profile() {
     updateTopThree, 
     loadUserData, 
     loadOtherUserData, 
-    isLoading: bookLoading 
+    isLoading: bookLoading,
+    updateGenres,
+    selectedGenres 
   } = useBookStore();
   const { allUserReviews, getUserReviews, updateReview, deleteReview, editingReviewId, setEditingReviewId } = useReviewStore();
   const { user } = useAuthStore();
@@ -40,6 +43,7 @@ export default function Profile() {
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showSelectBookModal, setShowSelectBookModal] = useState(false);
+  const [showGenreModal, setShowGenreModal] = useState(false);
 
   // Load profile and user data
   useEffect(() => {
@@ -81,6 +85,15 @@ export default function Profile() {
       await updateTopThree(updatedTopThree);
     } catch (error) {
       console.error('Error adding book to top three:', error);
+    }
+  };
+
+  const handleGenreUpdate = async (genres: string[]) => {
+    if (!user) return;
+    try {
+      await updateGenres(genres);
+    } catch (error) {
+      console.error('Error updating genres:', error);
     }
   };
 
@@ -373,6 +386,15 @@ export default function Profile() {
           onClose={() => setShowSelectBookModal(false)}
           onSelect={handleAddBook}
           excludeBooks={topThree}
+        />
+      )}
+
+      {showGenreModal && (
+        <GenreSelectionModal
+          visible={showGenreModal}
+          onClose={() => setShowGenreModal(false)}
+          onComplete={handleGenreUpdate}
+          initialGenres={selectedGenres}
         />
       )}
     </div>

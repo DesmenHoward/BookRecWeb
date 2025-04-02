@@ -56,20 +56,45 @@ export const useBookStore = create<BookState>()(
           set({ isLoading: true, error: null });
           
           // Try to get books from storage first
-          let books = await getAllBooks({ genres: selectedGenres, limit: 20 });
+          let books = await getAllBooks({ genres: selectedGenres, limit: 20 * selectedGenres.length });
           
-          // If we don't have enough books, fetch from API
-          if (books.length < 10) {
-            const apiBooks = await getInitialBookList(selectedGenres);
+          // If we don't have enough books per genre, fetch from API
+          const booksPerGenre: Record<string, number> = {};
+          books.forEach(book => {
+            book.genres.forEach(genre => {
+              if (selectedGenres.includes(genre)) {
+                booksPerGenre[genre] = (booksPerGenre[genre] || 0) + 1;
+              }
+            });
+          });
+
+          const genresNeedingBooks = selectedGenres.filter(genre => 
+            !booksPerGenre[genre] || booksPerGenre[genre] < 20
+          );
+
+          if (genresNeedingBooks.length > 0) {
+            // Fetch books for each genre that needs more
+            const apiBookPromises = genresNeedingBooks.map(genre => 
+              getInitialBookList([genre])
+            );
+            
+            const apiBookResults = await Promise.all(apiBookPromises);
+            const apiBooks = apiBookResults.flat();
             
             // Store the new books
             await storeBooks(apiBooks);
             
             // Get updated book list from storage
-            books = await getAllBooks({ genres: selectedGenres, limit: 20 });
+            books = await getAllBooks({ 
+              genres: selectedGenres, 
+              limit: 20 * selectedGenres.length 
+            });
           }
           
-          set({ books, selectedGenres, isLoading: false });
+          // Shuffle the books to mix genres
+          const shuffledBooks = [...books].sort(() => Math.random() - 0.5);
+          
+          set({ books: shuffledBooks, selectedGenres, isLoading: false });
         } catch (error: any) {
           console.error('Error initializing books:', error);
           set({ error: error.message, isLoading: false });
@@ -86,24 +111,45 @@ export const useBookStore = create<BookState>()(
           const existingIds = new Set(books.map(book => book.id));
           const moreBooks = (await getAllBooks({ 
             genres: selectedGenres, 
-            limit: 20 
+            limit: 20 * selectedGenres.length 
           })).filter(book => !existingIds.has(book.id));
           
-          // If we don't have enough new books, fetch from API
-          if (moreBooks.length < 5) {
-            const apiBooks = await getInitialBookList(selectedGenres);
+          // Check if we have enough books per genre
+          const booksPerGenre: Record<string, number> = {};
+          moreBooks.forEach(book => {
+            book.genres.forEach(genre => {
+              if (selectedGenres.includes(genre)) {
+                booksPerGenre[genre] = (booksPerGenre[genre] || 0) + 1;
+              }
+            });
+          });
+
+          const genresNeedingBooks = selectedGenres.filter(genre => 
+            !booksPerGenre[genre] || booksPerGenre[genre] < 10
+          );
+
+          if (genresNeedingBooks.length > 0) {
+            // Fetch more books for each genre that needs more
+            const apiBookPromises = genresNeedingBooks.map(genre => 
+              getInitialBookList([genre])
+            );
+            
+            const apiBookResults = await Promise.all(apiBookPromises);
+            const apiBooks = apiBookResults.flat()
+              .filter(book => !existingIds.has(book.id));
             
             // Store the new books
             await storeBooks(apiBooks);
             
-            // Add new books that we don't already have
-            const newApiBooks = apiBooks.filter(book => !existingIds.has(book.id));
-            moreBooks.push(...newApiBooks);
+            // Add new books to the list
+            moreBooks.push(...apiBooks);
           }
           
-          // Update books list
+          // Shuffle the new books
+          const shuffledNewBooks = [...moreBooks].sort(() => Math.random() - 0.5);
+          
           set({ 
-            books: [...books, ...moreBooks.slice(0, 10)],
+            books: [...books, ...shuffledNewBooks],
             isLoading: false 
           });
         } catch (error: any) {

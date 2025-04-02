@@ -127,6 +127,7 @@ export default function Home() {
         <GenreSelectionModal
           visible={true}
           onComplete={handleGenreSelection}
+          onClose={() => setShowGenreSelection(false)}
           initialGenres={selectedGenres}
         />
       ) : (
@@ -157,7 +158,7 @@ export default function Home() {
             </div>
 
             {/* Swipeable card container */}
-            <div className="relative h-[600px] mb-8">
+            <div className="relative h-[500px] sm:h-[600px] w-[85%] sm:w-full mx-auto mb-8">
               {books.slice(currentBookIndex, currentBookIndex + 1).map(book => (
                 <div
                   key={book.id}

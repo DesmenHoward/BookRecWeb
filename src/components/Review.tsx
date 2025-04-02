@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
-import { Rating } from '@mui/material';
-import StarIcon from '@mui/icons-material/Star';
-import StarBorderIcon from '@mui/icons-material/StarBorder';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Star, Edit, Trash2 } from 'lucide-react';
 import { useReviewStore } from '../store/reviewStore';
 import { ReviewEditor } from './ReviewEditor';
+import { Link } from 'react-router-dom';
 
 interface ReviewProps {
   id: string;
   bookId: string;
-  bookTitle: string;
   userId: string;
   userName: string;
   rating: number;
@@ -23,7 +19,6 @@ interface ReviewProps {
 export const Review: React.FC<ReviewProps> = ({
   id,
   bookId,
-  bookTitle,
   userId,
   userName,
   rating,
@@ -33,7 +28,6 @@ export const Review: React.FC<ReviewProps> = ({
   currentUserId
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { deleteReview, isLoading } = useReviewStore();
 
   const isOwner = currentUserId === userId;
@@ -66,7 +60,12 @@ export const Review: React.FC<ReviewProps> = ({
     <div className="border rounded-lg p-4 mb-4 bg-white">
       <div className="flex justify-between items-start mb-2">
         <div>
-          <div className="font-medium text-gray-900">{userName}</div>
+          <Link 
+            to={`/profile/${userId}`} 
+            className="font-medium text-gray-900 hover:text-accent transition-colors"
+          >
+            {userName}
+          </Link>
           <div className="text-sm text-gray-500">
             {updatedAt ? `Updated ${formattedDate}` : formattedDate}
           </div>
@@ -79,7 +78,7 @@ export const Review: React.FC<ReviewProps> = ({
               disabled={isLoading}
               title="Edit review"
             >
-              <EditIcon fontSize="small" />
+              <Edit size={16} />
             </button>
             <button
               onClick={handleDelete}
@@ -87,22 +86,23 @@ export const Review: React.FC<ReviewProps> = ({
               disabled={isLoading}
               title="Delete review"
             >
-              <DeleteIcon fontSize="small" />
+              <Trash2 size={16} />
             </button>
           </div>
         )}
       </div>
 
-      <div className="mb-2">
-        <Rating
-          value={rating}
-          readOnly
-          icon={<StarIcon className="text-yellow-400" />}
-          emptyIcon={<StarBorderIcon />}
-        />
+      <div className="mb-2 flex">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            size={16}
+            className={star <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}
+          />
+        ))}
       </div>
 
-      <div className="text-gray-700 whitespace-pre-wrap">{text}</div>
+      <p className="text-gray-700 whitespace-pre-wrap">{text}</p>
     </div>
   );
 };

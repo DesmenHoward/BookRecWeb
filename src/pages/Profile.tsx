@@ -14,12 +14,18 @@ import SelectBookModal from '../components/SelectBookModal';
 import { Book } from '../types/book';
 import ShopButton from '../components/ShopButton';
 
+const defaultProfilePicture = 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80';
+
 export default function Profile() {
   const { userId } = useParams();
-  const { profile, initializeProfile, isLoading: profileLoading } = useUserProfileStore();
+  const { 
+    profile, 
+    initializeProfile, 
+    loadUserProfile,
+    isLoading: profileLoading 
+  } = useUserProfileStore();
   const { 
     topThree, 
-    userNickname, 
     updateTopThree, 
     loadUserData, 
     loadOtherUserData, 
@@ -42,6 +48,7 @@ export default function Profile() {
         if (userId) {
           // If viewing another user's profile
           await Promise.all([
+            loadUserProfile(userId),
             getUserReviews(userId),
             loadOtherUserData(userId)
           ]);
@@ -58,7 +65,7 @@ export default function Profile() {
       }
     };
     loadData();
-  }, [userId, user?.uid, initializeProfile, loadUserData, loadOtherUserData, getUserReviews]);
+  }, [userId, user?.uid, initializeProfile, loadUserProfile, loadUserData, loadOtherUserData, getUserReviews]);
 
   const handleAddBook = async (book: Book) => {
     if (!user) {
@@ -99,73 +106,61 @@ export default function Profile() {
             <div className="flex-1 space-y-2 md:space-y-0">
               <div className="flex flex-col items-center md:items-start text-center md:text-left">
                 <h1 className="text-xl md:text-2xl font-bold text-text">{profile.displayName}</h1>
-                <p className="text-sm md:text-base text-text-light">@{profile.username}</p>
-                {userNickname && isOwnProfile && (
-                  <span className="inline-block mt-1 md:mt-2 px-2 md:px-3 py-0.5 md:py-1 bg-accent/10 text-accent rounded-full text-xs md:text-sm">
-                    {userNickname}
-                  </span>
-                )}
+                <p className="text-text-light">Joined {profile.joinDate}</p>
               </div>
+              
+              {profile.bio && (
+                <p className="text-text mt-2 text-center md:text-left">{profile.bio}</p>
+              )}
             </div>
           </div>
 
           {isOwnProfile && (
-            <div className="flex flex-row md:flex-col justify-center gap-2 md:gap-2 mt-2 md:mt-0 w-[40%] md:w-auto mx-auto md:mx-0">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowEditModal(true)}
-                className="flex-1 md:flex-none flex items-center justify-center md:justify-start gap-1 md:gap-2 px-1.5 py-1.5 md:px-4 md:py-2 bg-accent text-white rounded-md md:rounded-lg hover:bg-accent/90 transition-colors text-xs md:text-base min-w-[80px]"
+                className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
               >
-                <Edit size={14} className="md:w-5 md:h-5" />
-                <span className="hidden md:inline">Edit Profile</span>
-                <span className="inline md:hidden">Edit</span>
+                <Edit size={16} />
+                Edit Profile
               </button>
               <button
                 onClick={() => setShowSettingsModal(true)}
-                className="flex-1 md:flex-none flex items-center justify-center md:justify-start gap-1 md:gap-2 px-1.5 py-1.5 md:px-4 md:py-2 bg-gray-200 text-gray-800 rounded-md md:rounded-lg hover:bg-gray-300 transition-colors text-xs md:text-base min-w-[80px]"
+                className="p-2 text-text-light hover:bg-gray-100 rounded-lg transition-colors"
+                title="Account Settings"
               >
-                <Settings size={14} className="md:w-5 md:h-5" />
-                <span className="hidden md:inline">Account Settings</span>
-                <span className="inline md:hidden">Settings</span>
+                <Settings size={20} />
               </button>
               {isAdmin && (
                 <button
                   onClick={() => setShowAdminModal(true)}
-                  className="flex-1 md:flex-none flex items-center justify-center md:justify-start gap-1 md:gap-2 px-1.5 py-1.5 md:px-4 md:py-2 bg-green-500 text-white rounded-md md:rounded-lg hover:bg-green-600 transition-colors text-xs md:text-base min-w-[80px]"
+                  className="p-2 text-text-light hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Admin Settings"
                 >
-                  <Shield size={14} className="md:w-5 md:h-5" />
-                  <span className="hidden md:inline">Admin Panel</span>
-                  <span className="inline md:hidden">Admin</span>
+                  <Shield size={20} />
                 </button>
               )}
             </div>
           )}
         </div>
 
-        {profile.bio && (
-          <p className="mt-6 text-text text-center md:text-left">{profile.bio}</p>
+        {profile.location && (
+          <p className="mt-6 text-text text-center md:text-left">{profile.location}</p>
         )}
 
-        <div className="mt-6 flex flex-col md:flex-row items-center md:items-start gap-4">
-          {profile.location && (
-            <span className="text-text-light text-center"> {profile.location}</span>
-          )}
-          {profile.socialLinks && (
-            <div className="flex flex-wrap justify-center md:justify-start gap-4">
-              {profile.socialLinks.twitter && (
-                <a href={`https://x.com/${profile.socialLinks.twitter}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">X ({profile.socialLinks.twitter})</a>
-              )}
-              {profile.socialLinks.instagram && (
-                <a href={`https://instagram.com/${profile.socialLinks.instagram}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Instagram ({profile.socialLinks.instagram})</a>
-              )}
-              {profile.socialLinks.goodreads && (
-                <a href={`https://goodreads.com/user/show/${profile.socialLinks.goodreads}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Goodreads ({profile.socialLinks.goodreads})</a>
-              )}
-            </div>
-          )}
-          <span className="text-text-light">
-            {profile.joinDate}
-          </span>
-        </div>
+        {profile.socialLinks && (
+          <div className="flex flex-wrap justify-center md:justify-start gap-4">
+            {profile.socialLinks.twitter && (
+              <a href={`https://x.com/${profile.socialLinks.twitter}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">X ({profile.socialLinks.twitter})</a>
+            )}
+            {profile.socialLinks.instagram && (
+              <a href={`https://instagram.com/${profile.socialLinks.instagram}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Instagram ({profile.socialLinks.instagram})</a>
+            )}
+            {profile.socialLinks.goodreads && (
+              <a href={`https://goodreads.com/user/show/${profile.socialLinks.goodreads}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Goodreads ({profile.socialLinks.goodreads})</a>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="bg-surface rounded-xl p-6 mb-8">
@@ -186,15 +181,7 @@ export default function Profile() {
 
         {topThree.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-text-light mb-4">Share your all-time favorite books with your followers!</p>
-            {isOwnProfile && (
-              <button 
-                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-                onClick={() => setShowSelectBookModal(true)}
-              >
-                Add Your First Top Book
-              </button>
-            )}
+            <p className="text-text-light mb-4">Share your all-time favorite books with other readers!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">

@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { firestore } from '../firebase/config';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useAuthStore } from './authStore';
@@ -70,6 +68,7 @@ interface UserProfileState {
   
   // Actions
   initializeProfile: () => Promise<void>;
+  loadUserProfile: (userId: string) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   setIsEditing: (isEditing: boolean) => void;
   resetProfile: () => void;
@@ -100,42 +99,62 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         } as UserProfile;
         set({ profile, isLoading: false });
       } else {
-        // Create new profile for first-time users
+        // Create new profile if it doesn't exist
         const newProfile = createEmptyProfile(user.uid);
         await setDoc(userDocRef, newProfile);
         set({ profile: newProfile, isLoading: false });
       }
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      console.error('Error initializing profile:', error);
+      set({ error: 'Failed to load profile', isLoading: false });
+    }
+  },
+
+  loadUserProfile: async (userId: string) => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      const userDocRef = doc(firestore, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const profile = {
+          ...userData,
+          mountRushmoreBooks: userData.mountRushmoreBooks || [null, null, null, null]
+        } as UserProfile;
+        set({ profile, isLoading: false });
+      } else {
+        set({ error: 'User profile not found', isLoading: false });
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      set({ error: 'Failed to load user profile', isLoading: false });
     }
   },
   
-  updateProfile: async (updates) => {
+  updateProfile: async (updates: Partial<UserProfile>) => {
     const { user } = useAuthStore.getState();
-    const currentProfile = get().profile;
-    
-    if (!user || !currentProfile) return;
-    
+    if (!user) return;
+
     set({ isLoading: true, error: null });
     
     try {
       const userDocRef = doc(firestore, 'users', user.uid);
       await updateDoc(userDocRef, updates);
       
-      set(state => ({
-        profile: state.profile ? { ...state.profile, ...updates } : null,
-        isLoading: false
-      }));
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      const currentProfile = get().profile;
+      set({ 
+        profile: currentProfile ? { ...currentProfile, ...updates } : null,
+        isLoading: false 
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      set({ error: 'Failed to update profile', isLoading: false });
     }
   },
+
+  setIsEditing: (isEditing: boolean) => set({ isEditing }),
   
-  setIsEditing: (isEditing) => {
-    set({ isEditing });
-  },
-  
-  resetProfile: () => {
-    set({ profile: null, isEditing: false, isLoading: false, error: null });
-  }
+  resetProfile: () => set({ profile: null, isEditing: false, error: null })
 }));

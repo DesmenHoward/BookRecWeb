@@ -177,62 +177,64 @@ export const useBookStore = create<BookState>()(
 
       addToFavorites: async (book: Book) => {
         const { user } = useAuthStore.getState();
-        const { favorites } = get();
-        
-        // Update local state first
-        const updatedFavorites = [...favorites, book];
-        console.log('Adding to favorites:', { book, updatedFavorites });
-        set({ favorites: updatedFavorites });
-        
-        // Update localStorage
-        try {
-          localStorage.setItem(`userFavorites_${user.uid}`, JSON.stringify(updatedFavorites));
-        } catch (e) {
-          console.error('Error saving to localStorage:', e);
+        if (!user) {
+          set({ error: 'You must be logged in to add favorites' });
+          return;
         }
 
-        // Sync with Firestore if logged in
-        if (user) {
-          try {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            await updateDoc(userDocRef, {
-              favorites: arrayUnion(book)
-            });
-          } catch (error) {
-            console.error('Error syncing favorites to Firestore:', error);
-          }
+        try {
+          set({ isLoading: true, error: null });
+
+          // Update Firestore
+          const userDocRef = doc(firestore, 'users', user.uid);
+          await updateDoc(userDocRef, {
+            favorites: arrayUnion(book)
+          });
+
+          // Update local state
+          const { favorites } = get();
+          set({
+            favorites: [...favorites, book],
+            isLoading: false
+          });
+        } catch (error) {
+          console.error('Error adding to favorites:', error);
+          set({ error: 'Failed to add to favorites', isLoading: false });
         }
       },
 
       removeFromFavorites: async (bookId: string) => {
         const { user } = useAuthStore.getState();
-        const { favorites } = get();
-        
-        // Update local state
-        const updatedFavorites = favorites.filter(book => book.id !== bookId);
-        console.log('Removing from favorites:', { bookId, updatedFavorites });
-        set({ favorites: updatedFavorites });
-        
-        // Update localStorage
-        try {
-          localStorage.setItem(`userFavorites_${user.uid}`, JSON.stringify(updatedFavorites));
-        } catch (e) {
-          console.error('Error saving to localStorage:', e);
+        if (!user) {
+          set({ error: 'You must be logged in to remove favorites' });
+          return;
         }
 
-        // Sync with Firestore if logged in
-        if (user) {
-          try {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            const bookToRemove = favorites.find(book => book.id === bookId);
-            if (bookToRemove) {
-              await updateDoc(userDocRef, {
-                favorites: arrayRemove(bookToRemove)
-              });
-            }
-          } catch (error) {
-            console.error('Error syncing favorites to Firestore:', error);
+        try {
+          set({ isLoading: true, error: null });
+
+          const { favorites } = get();
+          const bookToRemove = favorites.find(b => b.id === bookId);
+          
+          if (!bookToRemove) {
+            set({ error: 'Book not found in favorites', isLoading: false });
+            return;
           }
+
+          // Update Firestore
+          const userDocRef = doc(firestore, 'users', user.uid);
+          await updateDoc(userDocRef, {
+            favorites: arrayRemove(bookToRemove)
+          });
+
+          // Update local state
+          set({
+            favorites: favorites.filter(b => b.id !== bookId),
+            isLoading: false
+          });
+        } catch (error) {
+          console.error('Error removing from favorites:', error);
+          set({ error: 'Failed to remove from favorites', isLoading: false });
         }
       },
 
@@ -355,23 +357,38 @@ export const useBookStore = create<BookState>()(
 
       loadOtherUserData: async (userId: string) => {
         try {
-          set({ isLoading: true });
+          set({ isLoading: true, error: null });
           
           // Clear previous state when loading other user's data
           set({ topThree: [], favorites: [], favoriteGenres: {}, userNickname: null });
           
+          // Load user data from Firestore
           const userDocRef = doc(firestore, 'users', userId);
           const userDoc = await getDoc(userDocRef);
           
           if (userDoc.exists()) {
             const data = userDoc.data();
-            console.log('Loaded other user data from Firestore:', data);
             
-            // Only set the data we want to show from other users
+            // Load top three books
+            const topThree = data.topThree || [];
+            
+            // Load favorites if user's privacy settings allow it
+            const favorites = data.privacySettings?.showFavorites ? (data.favorites || []) : [];
+            
+            // Load other public data
+            const favoriteGenres = data.privacySettings?.showReadingActivity ? (data.favoriteGenres || {}) : {};
+            const userNickname = data.nickname || null;
+            
+            // Update state with other user's data
             set({
-              topThree: data.topThree || [],
-              userNickname: data.nickname || null
+              topThree,
+              favorites,
+              favoriteGenres,
+              userNickname,
+              error: null
             });
+          } else {
+            set({ error: 'User data not found' });
           }
         } catch (error) {
           console.error('Error loading other user data:', error);

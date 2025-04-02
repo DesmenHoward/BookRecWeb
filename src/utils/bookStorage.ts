@@ -1,7 +1,7 @@
 import { Book } from '../types/book';
 
 // Storage keys with namespacing for better organization
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   BOOKS: '@bookrec/books',
   GENRE_BOOKS: '@bookrec/genre_books',
   CACHE_TIMESTAMP: '@bookrec/cache_timestamp',

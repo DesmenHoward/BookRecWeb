@@ -167,118 +167,92 @@ export function convertGoogleBook(googleBook: GoogleBook): Book | null {
 }
 
 async function fetchBooksForGenre(genre: string, maxResults: number = 40): Promise<Book[]> {
-  const searchTerms = GENRE_SEARCH_TERMS[genre] || [genre.toLowerCase()];
-  const allBooks: Book[] = [];
+  try {
+    const searchTerms = GENRE_SEARCH_TERMS[genre] || [genre];
+    const books: Book[] = [];
+    const seenIds = new Set<string>();
 
-  // Try each search term for the genre
-  for (const term of searchTerms) {
-    const response = await axios.get(`${API_BASE_URL}/volumes`, {
-      params: {
-        q: `subject:"${term}"`,
-        maxResults: Math.ceil(maxResults / searchTerms.length),
-        langRestrict: 'en',
-        orderBy: 'relevance',
-        key: API_KEY,
-        fields: 'items(id,volumeInfo(title,authors,description,categories,publishedDate,imageLinks,averageRating,industryIdentifiers))',
-        printType: 'books'
+    // Try each search term for the genre
+    for (const term of searchTerms) {
+      // Make multiple requests to get more books (20 per request)
+      const requestsPerTerm = Math.ceil(maxResults / 20);
+      
+      for (let i = 0; i < requestsPerTerm; i++) {
+        const response = await axios.get(`${API_BASE_URL}/volumes`, {
+          params: {
+            q: `subject:${term}`,
+            maxResults: 20,
+            startIndex: i * 20,
+            orderBy: 'relevance',
+            printType: 'books',
+            langRestrict: 'en',
+            key: API_KEY
+          }
+        });
+
+        const items = response.data.items || [];
+        
+        // Convert and filter valid books
+        for (const item of items) {
+          const book = convertGoogleBook(item);
+          if (book && !seenIds.has(book.id)) {
+            books.push(book);
+            seenIds.add(book.id);
+          }
+          
+          // Break if we have enough books
+          if (books.length >= maxResults) {
+            break;
+          }
+        }
+        
+        // Break if we have enough books
+        if (books.length >= maxResults) {
+          break;
+        }
       }
-    });
-
-    if (response.data?.items) {
-      const books = response.data.items
-        .map(convertGoogleBook)
-        .filter((book: Book | null): book is Book => book !== null);
-
-      allBooks.push(...books);
     }
+
+    return books;
+  } catch (error) {
+    console.error(`Error fetching books for genre ${genre}:`, error);
+    return [];
   }
-
-  // Remove duplicates based on book ID
-  const uniqueBooks = Array.from(
-    new Map(allBooks.map(book => [book.id, book])).values()
-  );
-
-  // Store books with genre metadata
-  if (uniqueBooks.length > 0) {
-    await storage.storeBooks(uniqueBooks, genre);
-  }
-
-  return uniqueBooks.slice(0, maxResults);
 }
 
 export async function getInitialBookList(selectedGenres?: string[]): Promise<Book[]> {
-  if (!API_KEY) {
-    throw new Error('Google Books API key is not configured');
-  }
-
   try {
-    const genreBooks: Record<string, Book[]> = {};
-    const booksPerGenre = 20; // Number of books to fetch per genre
+    // If no genres specified, use a default selection
+    const genres = selectedGenres?.length ? selectedGenres : Object.keys(GENRE_SEARCH_TERMS).slice(0, 5);
+    
+    // Fetch 20 books for each genre
+    const booksPerGenre = 20;
+    const allBooks: Book[] = [];
+    const seenIds = new Set<string>();
 
-    if (selectedGenres?.length) {
-      // Process each genre
-      for (const genre of selectedGenres) {
-        // Check if we need more books for this genre
-        const needsMoreBooks = await storage.shouldFetchMoreBooks(genre);
-        
-        // First try to get cached books
-        let books = await storage.getBooksByGenre(genre);
-        
-        // If we need more books, fetch them from API
-        if (needsMoreBooks || books.length < booksPerGenre) {
-          const newBooks = await fetchBooksForGenre(genre);
-          books = [...new Set([...books, ...newBooks])];
+    // Fetch books for each genre in parallel
+    const bookPromises = genres.map(genre => fetchBooksForGenre(genre, booksPerGenre));
+    const genreResults = await Promise.all(bookPromises);
+
+    // Combine results, avoiding duplicates
+    for (const books of genreResults) {
+      for (const book of books) {
+        if (!seenIds.has(book.id)) {
+          allBooks.push(book);
+          seenIds.add(book.id);
         }
-        
-        // Store books for this genre
-        genreBooks[genre] = books;
       }
-
-      // Create a balanced mix of books from all genres
-      const mixedBooks: Book[] = [];
-      let genreIndex = 0;
-      
-      // Keep adding books until we have enough or run out of books
-      while (mixedBooks.length < 40 && Object.values(genreBooks).some(books => books.length > 0)) {
-        const currentGenre = selectedGenres[genreIndex];
-        const genreBookList = genreBooks[currentGenre];
-        
-        if (genreBookList.length > 0) {
-          // Take a random book from this genre
-          const randomIndex = Math.floor(Math.random() * genreBookList.length);
-          const book = genreBookList[randomIndex];
-          
-          // Only add if not already in mixedBooks
-          if (!mixedBooks.some(b => b.id === book.id)) {
-            mixedBooks.push(book);
-          }
-          
-          // Remove the book from the genre's list
-          genreBookList.splice(randomIndex, 1);
-        }
-        
-        // Move to next genre
-        genreIndex = (genreIndex + 1) % selectedGenres.length;
-      }
-
-      return mixedBooks;
     }
 
-    // If no genres specified, use default fiction genre
-    const defaultBooks = await storage.getBooksByGenre('Fiction');
-    if (defaultBooks.length < 20) {
-      const newBooks = await fetchBooksForGenre('Fiction');
-      return [...new Set([...defaultBooks, ...newBooks])]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 40);
+    // Store all fetched books
+    if (allBooks.length > 0) {
+      await storage.storeBooks(allBooks);
     }
 
-    return defaultBooks
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 40);
-  } catch (error: any) {
-    console.error('Error fetching books:', error);
-    throw new Error('Failed to fetch books. Please try again later.');
+    return allBooks;
+  } catch (error) {
+    console.error('Error getting initial book list:', error);
+    return [];
   }
 }
 

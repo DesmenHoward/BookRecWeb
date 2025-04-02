@@ -1,15 +1,11 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Edit } from 'lucide-react';
+import { Book } from '../types/book';
 
-interface BookFormData {
-  title: string;
-  author: string;
+type BookFormData = Omit<Book, 'id' | 'coverImages' | 'publishedYear'> & {
   coverUrl: string;
-  description: string;
-  genres: string[];
-  isbn?: string;
   publishedDate?: string;
-}
+};
 
 interface AdminBookFormProps {
   isOpen: boolean;
@@ -100,7 +96,7 @@ export default function AdminBookForm({ isOpen, onClose, onSubmit, editBook }: A
               required
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border focus:outline-none focus:border-accent"
+              className="w-full px-3 py-2 bg-surface-light rounded-lg focus:ring-1 focus:ring-accent"
             />
           </div>
 
@@ -114,13 +110,13 @@ export default function AdminBookForm({ isOpen, onClose, onSubmit, editBook }: A
               required
               value={formData.author}
               onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
-              className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border focus:outline-none focus:border-accent"
+              className="w-full px-3 py-2 bg-surface-light rounded-lg focus:ring-1 focus:ring-accent"
             />
           </div>
 
           <div>
             <label htmlFor="coverUrl" className="block text-sm font-medium text-text mb-1">
-              Cover URL *
+              Cover Image URL *
             </label>
             <input
               type="url"
@@ -128,20 +124,7 @@ export default function AdminBookForm({ isOpen, onClose, onSubmit, editBook }: A
               required
               value={formData.coverUrl}
               onChange={(e) => setFormData(prev => ({ ...prev, coverUrl: e.target.value }))}
-              className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border focus:outline-none focus:border-accent"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="genres" className="block text-sm font-medium text-text mb-1">
-              Genres (comma-separated)
-            </label>
-            <input
-              type="text"
-              id="genres"
-              value={formData.genres.join(', ')}
-              onChange={(e) => setFormData(prev => ({ ...prev, genres: e.target.value.split(',').map(g => g.trim()) }))}
-              className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border focus:outline-none focus:border-accent"
+              className="w-full px-3 py-2 bg-surface-light rounded-lg focus:ring-1 focus:ring-accent"
             />
           </div>
 
@@ -153,46 +136,53 @@ export default function AdminBookForm({ isOpen, onClose, onSubmit, editBook }: A
               id="description"
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border focus:outline-none focus:border-accent min-h-[100px]"
+              className="w-full px-3 py-2 bg-surface-light rounded-lg focus:ring-1 focus:ring-accent h-24 resize-none"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="isbn" className="block text-sm font-medium text-text mb-1">
-                ISBN
-              </label>
-              <input
-                type="text"
-                id="isbn"
-                value={formData.isbn}
-                onChange={(e) => setFormData(prev => ({ ...prev, isbn: e.target.value }))}
-                className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border focus:outline-none focus:border-accent"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="publishedDate" className="block text-sm font-medium text-text mb-1">
-                Published Date
-              </label>
-              <input
-                type="date"
-                id="publishedDate"
-                value={formData.publishedDate}
-                onChange={(e) => setFormData(prev => ({ ...prev, publishedDate: e.target.value }))}
-                className="w-full px-3 py-2 bg-surface-light rounded-lg border border-border focus:outline-none focus:border-accent"
-              />
-            </div>
+          <div>
+            <label htmlFor="genres" className="block text-sm font-medium text-text mb-1">
+              Genres (comma-separated)
+            </label>
+            <input
+              type="text"
+              id="genres"
+              value={formData.genres.join(', ')}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                genres: e.target.value.split(',').map(g => g.trim()).filter(Boolean)
+              }))}
+              className="w-full px-3 py-2 bg-surface-light rounded-lg focus:ring-1 focus:ring-accent"
+            />
           </div>
 
-          <div className="flex justify-end gap-3 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-text-light hover:text-text transition-colors"
-            >
-              Cancel
-            </button>
+          <div>
+            <label htmlFor="isbn" className="block text-sm font-medium text-text mb-1">
+              ISBN
+            </label>
+            <input
+              type="text"
+              id="isbn"
+              value={formData.isbn}
+              onChange={(e) => setFormData(prev => ({ ...prev, isbn: e.target.value }))}
+              className="w-full px-3 py-2 bg-surface-light rounded-lg focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="publishedDate" className="block text-sm font-medium text-text mb-1">
+              Published Date
+            </label>
+            <input
+              type="date"
+              id="publishedDate"
+              value={formData.publishedDate}
+              onChange={(e) => setFormData(prev => ({ ...prev, publishedDate: e.target.value }))}
+              className="w-full px-3 py-2 bg-surface-light rounded-lg focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
+          <div className="flex justify-end pt-4">
             <button
               type="submit"
               className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"

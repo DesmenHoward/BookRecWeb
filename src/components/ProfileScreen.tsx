@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useBookStore } from '../store/bookStore';
 import { useAuthStore } from '../store/authStore';
 import { useUserProfileStore } from '../store/userProfileStore';
 import { useReviewStore } from '../store/reviewStore';
@@ -19,13 +18,11 @@ import ReadingAnalytics from './ReadingAnalytics';
 import MountRushmoreBooks from './MountRushmoreBooks';
 import AdminSettings from './AdminSettings';
 import LoadingIndicator from './LoadingIndicator';
-import type { Review } from '../types/review';
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile, updateProfile, initializeProfile, isLoading } = useUserProfileStore();
-  const { favorites } = useBookStore();
   const { addReview, reviews } = useReviewStore();
   
   // Modal states
@@ -74,8 +71,8 @@ export default function ProfileScreen() {
     setActiveTab(tab);
   };
 
-  const handleUpdateMountRushmore = (books: any[]) => {
-    updateProfile({ mountRushmoreBooks: books });
+  const handleUpdateMountRushmore = (books: (string | null)[]) => {
+    updateProfile({ mountRushmoreBooks: books.filter(Boolean) as string[] });
   };
 
   const handleStatsPress = (statType: 'swiped' | 'favorites' | 'recommendations') => {
@@ -143,18 +140,36 @@ export default function ProfileScreen() {
 
               <div className="mt-6">
                 <h3 className="text-xl font-semibold mb-4">Social Links</h3>
-                <ProfileSocialLinks 
-                  socialLinks={profile.socialLinks || {
-                    twitter: '',
-                    instagram: '',
-                    goodreads: ''
-                  }}
-                />
+                <ProfileSocialLinks />
               </div>
             </>
           ) : (
             <ReviewsList 
-              reviews={reviews}
+              reviews={reviews.map(review => ({
+                id: review.id || '',
+                book: {
+                  id: review.bookId,
+                  title: review.bookTitle,
+                  author: '',
+                  coverUrl: '',
+                  coverImages: {
+                    small: '',
+                    medium: '',
+                    large: ''
+                  },
+                  description: '',
+                  genres: [],
+                  publishedYear: 0,
+                  rating: 0,
+                  status: null
+                },
+                date: review.createdAt.toISOString(),
+                rating: review.rating,
+                text: review.text,
+                userId: review.userId,
+                userName: review.userName,
+                isPublic: review.isPublic || false
+              }))}
               onAddReview={() => setReviewModalVisible(true)}
               canEdit={true}
             />
@@ -162,9 +177,13 @@ export default function ProfileScreen() {
         </div>
 
         <ProfileMenu 
-          onSettingsClick={handleSettingsPress}
-          onAdminClick={handleAdminSettings}
-          isAdmin={profile.isAdmin}
+          onPressMenuItem={(type) => {
+            if (type === 'admin') {
+              handleAdminSettings();
+            } else {
+              handleSettingsPress(type as 'settings' | 'privacy' | 'notifications' | 'appearance' | 'help');
+            }
+          }}
         />
       </div>
 
@@ -172,35 +191,42 @@ export default function ProfileScreen() {
       <EditProfileModal
         isOpen={editProfileModalVisible}
         onClose={() => setEditProfileModalVisible(false)}
-        profile={profile}
-        onSave={updateProfile}
       />
 
       <ProfilePhotoModal
-        isOpen={photoModalVisible}
+        visible={photoModalVisible}
         onClose={() => setPhotoModalVisible(false)}
       />
 
       <SettingsModal
-        isOpen={settingsModalVisible}
+        visible={settingsModalVisible}
         onClose={() => setSettingsModalVisible(false)}
         type={settingsType}
       />
 
       <BookReviewModal
-        isOpen={reviewModalVisible}
+        visible={reviewModalVisible}
         onClose={() => setReviewModalVisible(false)}
-        onSubmit={async (review) => {
-          if ('bookId' in review && 'bookTitle' in review) {
-            await addReview(review);
-          }
+        onSubmit={async ({ book, rating, text, isPublic }) => {
+          await addReview({
+            bookId: book.id,
+            bookTitle: book.title,
+            userId: user.uid,
+            userName: profile.displayName,
+            rating,
+            text,
+            createdAt: new Date(),
+            isPublic: isPublic || true
+          });
+          setReviewModalVisible(false);
         }}
       />
 
-      <AdminSettings
-        isOpen={adminSettingsVisible}
-        onClose={() => setAdminSettingsVisible(false)}
-      />
+      {adminSettingsVisible && (
+        <AdminSettings
+          onClose={() => setAdminSettingsVisible(false)}
+        />
+      )}
     </div>
   );
 }

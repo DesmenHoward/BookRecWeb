@@ -7,6 +7,7 @@ export interface UserProfile {
   id: string;
   username: string;
   displayName: string;
+  email: string;
   bio: string;
   profilePicture: string;
   location: string;
@@ -29,7 +30,7 @@ export interface UserProfile {
     friendActivity: boolean;
     appUpdates: boolean;
   };
-  mountRushmoreBooks: any[];
+  mountRushmoreBooks: string[];
 }
 
 // Create empty profile template
@@ -37,12 +38,13 @@ const createEmptyProfile = (userId: string): UserProfile => ({
   id: userId,
   username: '',
   displayName: 'New User',
+  email: '',
   bio: '',
   profilePicture: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80',
   location: '',
   website: '',
-  language: 'English',
-  joinDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' }),
+  language: 'en',
+  joinDate: new Date().toISOString(),
   socialLinks: {
     twitter: '',
     instagram: '',
@@ -53,13 +55,13 @@ const createEmptyProfile = (userId: string): UserProfile => ({
     showFavorites: true,
     allowRecommendations: true
   },
-  theme: 'dark',
+  theme: 'system',
   notificationSettings: {
     newRecommendations: true,
     friendActivity: true,
     appUpdates: true
   },
-  mountRushmoreBooks: [null, null, null, null]
+  mountRushmoreBooks: []
 });
 
 interface UserProfileState {
@@ -97,7 +99,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         // Ensure mountRushmoreBooks exists with default value
         const profile = {
           ...userData,
-          mountRushmoreBooks: userData.mountRushmoreBooks || [null, null, null, null]
+          mountRushmoreBooks: userData.mountRushmoreBooks || []
         } as UserProfile;
         set({ profile, isLoading: false });
       } else {
@@ -123,7 +125,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         const userData = userDoc.data();
         const profile = {
           ...userData,
-          mountRushmoreBooks: userData.mountRushmoreBooks || [null, null, null, null]
+          mountRushmoreBooks: userData.mountRushmoreBooks || []
         } as UserProfile;
         set({ profile, isLoading: false });
       } else {

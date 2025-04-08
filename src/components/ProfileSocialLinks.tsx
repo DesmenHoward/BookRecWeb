@@ -1,19 +1,5 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Linking, Platform } from 'react-native';
-import { Instagram, BookOpen } from 'lucide-react-native';
+import { Instagram, BookOpen, Twitter } from 'lucide-react';
 import { useUserProfileStore } from '../store/userProfileStore';
-import XIcon from './icons/XIcon';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8'
-};
 
 export default function ProfileSocialLinks() {
   const { profile } = useUserProfileStore();
@@ -47,90 +33,50 @@ export default function ProfileSocialLinks() {
     }
     
     if (url) {
-      Linking.openURL(url).catch((err) => console.error('Error opening link:', err));
+      window.open(url, '_blank');
     }
   };
-  
+
   // Only render the component if there are social links to display
   if (!twitter && !instagram && !goodreads) {
     return null;
   }
   
   return (
-    <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Connect</Text>
+    <div className="bg-surface mt-4 rounded-lg p-4 shadow-sm">
+      <div className="text-lg font-bold mb-4">Connect</div>
       
-      <View style={styles.socialLinksContainer}>
+      <div className="flex flex-row justify-around items-center gap-4">
         {twitter && (
-          <TouchableOpacity 
-            style={styles.socialLink}
-            onPress={() => openLink('twitter')}
+          <button
+            onClick={() => openLink('twitter')}
+            className="flex flex-col items-center p-2 hover:opacity-80"
           >
-            <XIcon size={20} color="#000000" />
-            <Text style={styles.socialLinkText}>@{twitter.replace('@', '')}</Text>
-          </TouchableOpacity>
+            <Twitter className="w-6 h-6 text-accent" />
+            <span className="text-sm text-textLight mt-1">@{twitter.replace('@', '')}</span>
+          </button>
         )}
         
         {instagram && (
-          <TouchableOpacity 
-            style={styles.socialLink}
-            onPress={() => openLink('instagram')}
+          <button
+            onClick={() => openLink('instagram')}
+            className="flex flex-col items-center p-2 hover:opacity-80"
           >
-            <Instagram size={20} color="#E1306C" />
-            <Text style={styles.socialLinkText}>{instagram}</Text>
-          </TouchableOpacity>
+            <Instagram className="w-6 h-6 text-accent" />
+            <span className="text-sm text-textLight mt-1">{instagram}</span>
+          </button>
         )}
         
         {goodreads && (
-          <TouchableOpacity 
-            style={styles.socialLink}
-            onPress={() => openLink('goodreads')}
+          <button
+            onClick={() => openLink('goodreads')}
+            className="flex flex-col items-center p-2 hover:opacity-80"
           >
-            <BookOpen size={20} color="#553B08" />
-            <Text style={styles.socialLinkText}>goodreads.com/{goodreads}</Text>
-          </TouchableOpacity>
+            <BookOpen className="w-6 h-6 text-accent" />
+            <span className="text-sm text-textLight mt-1">goodreads.com/{goodreads}</span>
+          </button>
         )}
-      </View>
-    </View>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: THEME.surface,
-    marginTop: 15,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    marginHorizontal: 15,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: THEME.text,
-    marginBottom: 15,
-  },
-  socialLinksContainer: {
-    gap: 15,
-  },
-  socialLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  socialLinkText: {
-    color: THEME.textLight,
-    marginLeft: 10,
-    fontSize: 16,
-  },
-});

@@ -314,8 +314,9 @@ export default function Profile() {
                           )}
                           <button
                             onClick={async () => {
+                              if (!user) return; // Should never happen as the button is only shown when isOwnProfile is true
                               if (review.id && window.confirm('Are you sure you want to delete this review?')) {
-                                await deleteReview(review.id, review.bookId, user.uid);
+                                await deleteReview(review.id);
                                 await getUserReviews(user.uid);
                               }
                             }}

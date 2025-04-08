@@ -1,17 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { TriangleAlert as AlertTriangle, RefreshCw } from 'lucide-react-native';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8'
-};
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
   children: React.ReactNode;
@@ -48,58 +36,34 @@ export class ErrorBoundary extends React.Component<Props, State> {
       }
 
       return (
-        <View style={styles.container}>
-          <AlertTriangle size={50} color={THEME.accent} />
-          <Text style={styles.title}>Oops! Something went wrong</Text>
-          <Text style={styles.message}>
-            {this.state.error?.message || 'An unexpected error occurred'}
-          </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={this.handleRetry}>
-            <RefreshCw size={20} color="white" />
-            <Text style={styles.retryText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+            <div className="flex justify-center mb-6">
+              <div className="bg-red-50 rounded-full p-4">
+                <AlertTriangle className="w-12 h-12 text-red-600" />
+              </div>
+            </div>
+            
+            <h1 className="text-2xl font-bold text-text mb-4">
+              Oops! Something went wrong
+            </h1>
+            
+            <p className="text-textLight mb-6">
+              {this.state.error?.message || 'An unexpected error occurred'}
+            </p>
+            
+            <button
+              onClick={this.handleRetry}
+              className="inline-flex items-center justify-center bg-accent text-white rounded-lg px-6 py-2 font-medium hover:bg-accent/90 transition-colors"
+            >
+              <RefreshCw className="w-5 h-5 mr-2" />
+              Try Again
+            </button>
+          </div>
+        </div>
       );
     }
 
     return this.props.children;
   }
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: THEME.background,
-    padding: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: THEME.text,
-    marginTop: 20,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  message: {
-    fontSize: 16,
-    color: THEME.textLight,
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: THEME.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-  },
-  retryText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-});

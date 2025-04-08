@@ -1,17 +1,4 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
 import { useBookStore } from '../store/bookStore';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8'
-};
 
 interface ProfileStatsProps {
   onPressStats: (statType: 'swiped' | 'favorites' | 'recommendations') => void;
@@ -21,90 +8,34 @@ export default function ProfileStats({ onPressStats }: ProfileStatsProps) {
   const { swipedBooks, favorites, recommendations } = useBookStore();
   
   return (
-    <View style={styles.container}>
-      <TouchableOpacity 
-        style={styles.statItem}
-        onPress={() => onPressStats('swiped')}
+    <div className="flex flex-row justify-between items-center p-4 bg-surface rounded-lg shadow-sm">
+      <button 
+        className="flex flex-col items-center flex-1 cursor-pointer hover:opacity-80"
+        onClick={() => onPressStats('swiped')}
       >
-        <Text style={styles.statNumber}>{swipedBooks.length}</Text>
-        <Text style={styles.statLabel}>Books{'\n'}Swiped</Text>
-      </TouchableOpacity>
+        <span className="text-2xl font-bold text-accent">{swipedBooks.length}</span>
+        <span className="text-sm text-textLight text-center">Books{'\n'}Swiped</span>
+      </button>
       
-      <View style={styles.statDivider} />
+      <div className="w-px h-12 bg-border mx-4" />
       
-      <TouchableOpacity 
-        style={styles.statItem}
-        onPress={() => onPressStats('favorites')}
+      <button 
+        className="flex flex-col items-center flex-1 cursor-pointer hover:opacity-80"
+        onClick={() => onPressStats('favorites')}
       >
-        <Text style={styles.statNumber}>{favorites.length}</Text>
-        <Text style={styles.statLabel}>Favorites</Text>
-      </TouchableOpacity>
+        <span className="text-2xl font-bold text-accent">{favorites.length}</span>
+        <span className="text-sm text-textLight">Favorites</span>
+      </button>
       
-      <View style={styles.statDivider} />
+      <div className="w-px h-12 bg-border mx-4" />
       
-      <TouchableOpacity 
-        style={styles.statItem}
-        onPress={() => onPressStats('recommendations')}
+      <button 
+        className="flex flex-col items-center flex-1 cursor-pointer hover:opacity-80"
+        onClick={() => onPressStats('recommendations')}
       >
-        <Text style={styles.statNumber}>{recommendations.length}</Text>
-        <Text style={[styles.statLabel, styles.recommendationsLabel]}>Recommendations</Text>
-      </TouchableOpacity>
-    </View>
+        <span className="text-2xl font-bold text-accent">{recommendations.length}</span>
+        <span className="text-sm text-textLight">Recommendations</span>
+      </button>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 20,
-    paddingHorizontal: 15,
-    backgroundColor: THEME.surface,
-    marginTop: 15,
-    borderRadius: 10,
-    marginHorizontal: 15,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-    paddingHorizontal: 10,
-  },
-  statDivider: {
-    width: 1,
-    height: '80%',
-    backgroundColor: THEME.border,
-    marginHorizontal: 15,
-    alignSelf: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: THEME.accent,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  statLabel: {
-    fontSize: 13,
-    color: THEME.textLight,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  recommendationsLabel: {
-    paddingHorizontal: 5, // Add horizontal padding specifically for "Recommendations"
-    marginTop: Platform.select({
-      android: 2, // Extra top margin for Android
-      default: 0,
-    }),
-  },
-});

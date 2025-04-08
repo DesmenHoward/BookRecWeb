@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useReviewStore } from '../store/reviewStore';
-import { Rating } from '@mui/material';
-import StarIcon from '@mui/icons-material/Star';
-import StarBorderIcon from '@mui/icons-material/StarBorder';
+import { useState, useEffect } from 'react';
+import { Star } from 'lucide-react';
+import { useReviewStore } from '@/store/reviewStore';
+import { useAuthStore } from '@/store/authStore';
 
 interface ReviewEditorProps {
   reviewId?: string;
@@ -13,19 +12,41 @@ interface ReviewEditorProps {
   onCancel?: () => void;
 }
 
-export const ReviewEditor: React.FC<ReviewEditorProps> = ({
+const RatingStars = ({ rating, onRatingChange }: { rating: number; onRatingChange: (rating: number) => void }) => {
+  return (
+    <div className="flex space-x-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => onRatingChange(star)}
+          className="focus:outline-none"
+        >
+          <Star
+            className={`w-6 h-6 ${
+              star <= rating ? 'fill-yellow-400 text-yellow-400' : 'fill-none text-gray-300'
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+};
+
+export const ReviewEditor = ({
   reviewId,
   bookId,
   bookTitle,
   initialRating = 5,
   initialText = '',
   onCancel
-}) => {
+}: ReviewEditorProps) => {
   const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState(initialText);
   const [error, setError] = useState('');
   
   const { addReview, updateReview, isLoading, error: storeError, clearError } = useReviewStore();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     if (storeError) {
@@ -38,6 +59,11 @@ export const ReviewEditor: React.FC<ReviewEditorProps> = ({
     e.preventDefault();
     setError('');
 
+    if (!user) {
+      setError('You must be logged in to submit a review');
+      return;
+    }
+
     try {
       if (reviewId) {
         await updateReview(reviewId, { rating, text });
@@ -45,44 +71,37 @@ export const ReviewEditor: React.FC<ReviewEditorProps> = ({
         await addReview({
           bookId,
           bookTitle,
-          userId: 'current-user-id', // This should come from your auth store
-          userName: 'Current User', // This should come from your auth store
           rating,
-          text
+          text,
+          userId: user.uid,
+          userName: user.displayName || 'Anonymous User',
+          isPublic: true
         });
       }
       onCancel?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'Failed to save review');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 bg-white rounded-lg shadow">
-      <div className="flex flex-col space-y-2">
-        <label className="text-sm font-medium text-gray-700">Rating</label>
-        <Rating
-          value={rating}
-          onChange={(_, newValue) => setRating(newValue || 0)}
-          precision={1}
-          icon={<StarIcon className="text-yellow-400" />}
-          emptyIcon={<StarBorderIcon />}
-          disabled={isLoading}
-        />
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Rating</label>
+        <RatingStars rating={rating} onRatingChange={setRating} />
       </div>
 
-      <div className="flex flex-col space-y-2">
-        <label htmlFor="review-text" className="text-sm font-medium text-gray-700">
+      <div>
+        <label htmlFor="review-text" className="block text-sm font-medium text-gray-700 mb-1">
           Review
         </label>
         <textarea
           id="review-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           rows={4}
           placeholder="Write your review here..."
-          disabled={isLoading}
         />
       </div>
 
@@ -90,19 +109,20 @@ export const ReviewEditor: React.FC<ReviewEditorProps> = ({
         <div className="text-red-600 text-sm">{error}</div>
       )}
 
-      <div className="flex justify-end space-x-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          disabled={isLoading}
-        >
-          Cancel
-        </button>
+      <div className="flex justify-end space-x-2">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Cancel
+          </button>
+        )}
         <button
           type="submit"
-          className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           disabled={isLoading}
+          className="px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
         >
           {isLoading ? 'Saving...' : reviewId ? 'Update Review' : 'Post Review'}
         </button>

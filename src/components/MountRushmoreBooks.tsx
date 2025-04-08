@@ -1,28 +1,6 @@
-import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  Image, 
-  TouchableOpacity, 
-  Modal,
-  FlatList,
-  Platform,
-  Alert
-} from 'react-native';
-import { Mountain, Plus, X, Search } from 'lucide-react-native';
+import { useState } from 'react';
+import { Mountain, Plus, X, Search } from 'lucide-react';
 import { useBookStore } from '../store/bookStore';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8'
-};
 
 interface MountRushmoreBooksProps {
   mountRushmoreBooks?: any[];
@@ -47,10 +25,7 @@ export default function MountRushmoreBooks({
 
     // Check if book is already in Mount Rushmore
     if (mountRushmoreBooks.some(b => b?.id === book.id)) {
-      Alert.alert(
-        'Book Already Selected',
-        'This book is already in your Mount Rushmore. Please choose another book.'
-      );
+      alert('This book is already in your Mount Rushmore. Please choose another book.');
       return;
     }
 
@@ -62,307 +37,109 @@ export default function MountRushmoreBooks({
   };
 
   const handleRemoveBook = (position: number) => {
-    Alert.alert(
-      'Remove Book',
-      'Are you sure you want to remove this book from your Mount Rushmore?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            const newBooks = [...mountRushmoreBooks];
-            newBooks[position] = null;
-            onUpdateMountRushmore(newBooks);
-          }
-        }
-      ]
-    );
+    if (confirm('Are you sure you want to remove this book from your Mount Rushmore?')) {
+      const newBooks = [...mountRushmoreBooks];
+      newBooks[position] = null;
+      onUpdateMountRushmore(newBooks);
+    }
   };
 
   const renderBookSlot = (position: number) => {
     const book = mountRushmoreBooks[position];
 
     return (
-      <View style={styles.bookSlotWrapper}>
+      <div className="relative mb-4">
         {!book ? (
-          <TouchableOpacity 
-            style={styles.emptySlot}
-            onPress={() => handleSelectBook(position)}
+          <button 
+            className="flex flex-col items-center justify-center w-full h-40 bg-white rounded-lg border-2 border-dashed border-accent p-4 hover:bg-gray-50 transition-colors"
+            onClick={() => handleSelectBook(position)}
           >
-            <Plus size={24} color={THEME.accent} />
-            <Text style={styles.emptySlotText}>Add Book</Text>
-          </TouchableOpacity>
+            <Plus className="w-6 h-6 text-accent mb-2" />
+            <span className="text-sm text-textLight">Add Book</span>
+          </button>
         ) : (
-          <View style={styles.bookSlot}>
-            <Image source={{ uri: book.coverUrl }} style={styles.bookCover} />
-            <View style={styles.bookInfo}>
-              <Text style={styles.bookTitle} numberOfLines={2}>{book.title}</Text>
-              <Text style={styles.bookAuthor} numberOfLines={1}>{book.author}</Text>
-            </View>
-            <View style={styles.bookActions}>
-              <TouchableOpacity 
-                style={styles.removeButton}
-                onPress={() => handleRemoveBook(position)}
-              >
-                <X size={16} color={THEME.accent} />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <div className="flex bg-white rounded-lg overflow-hidden h-40">
+            <img src={book.coverUrl} alt={book.title} className="w-28 h-40 object-cover" />
+            <div className="flex-1 p-4">
+              <h3 className="text-sm font-bold text-text line-clamp-2 mb-1">{book.title}</h3>
+              <p className="text-xs text-textLight line-clamp-1">{book.author}</p>
+            </div>
+            <button 
+              className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-sm hover:bg-gray-50"
+              onClick={() => handleRemoveBook(position)}
+            >
+              <X className="w-4 h-4 text-accent" />
+            </button>
+          </div>
         )}
-        <View style={styles.positionLabelContainer}>
-          <Text style={styles.positionLabel}>
-            <Text style={styles.positionNumber}>{position + 1}</Text>
-          </Text>
-        </View>
-      </View>
+        <div className="absolute -top-3 -left-3 w-6 h-6 bg-accent rounded-full flex items-center justify-center">
+          <span className="text-xs font-bold text-white">{position + 1}</span>
+        </div>
+      </div>
     );
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <Mountain size={24} color={THEME.accent} />
-          <Text style={styles.title}>Mount Rushmore</Text>
-        </View>
-        <Text style={styles.subtitle}>Your all-time favorite books</Text>
-      </View>
+    <div className="bg-surface rounded-xl p-6 mt-4 mx-4 shadow-sm">
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Mountain className="w-6 h-6 text-accent" />
+          <h2 className="text-xl font-bold text-text">Mount Rushmore</h2>
+        </div>
+        <p className="text-sm text-textLight">Your all-time favorite books</p>
+      </div>
 
-      <View style={styles.booksContainer}>
+      <div className="space-y-4">
         {[0, 1, 2, 3].map((position) => (
-          <View key={position} style={styles.bookSlotContainer}>
+          <div key={position}>
             {renderBookSlot(position)}
-          </View>
+          </div>
         ))}
-      </View>
+      </div>
 
-      <Modal
-        visible={selectBookModalVisible}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setSelectBookModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity 
-              onPress={() => setSelectBookModalVisible(false)}
-              style={styles.closeButton}
-            >
-              <X size={24} color="white" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Select Book</Text>
-            <View style={styles.modalHeaderSpacer} />
-          </View>
-
-          <FlatList
-            data={favorites}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.bookListItem}
-                onPress={() => handleBookSelected(item)}
+      {selectBookModalVisible && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-lg rounded-xl overflow-hidden">
+            <div className="bg-accent p-4 flex items-center justify-between">
+              <button 
+                onClick={() => setSelectBookModalVisible(false)}
+                className="text-white hover:opacity-80"
               >
-                <Image source={{ uri: item.coverUrl }} style={styles.listBookCover} />
-                <View style={styles.listBookInfo}>
-                  <Text style={styles.listBookTitle}>{item.title}</Text>
-                  <Text style={styles.listBookAuthor}>{item.author}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            contentContainerStyle={styles.bookList}
-            ListEmptyComponent={
-              <View style={styles.emptyListContainer}>
-                <Search size={50} color="#CCCCCC" />
-                <Text style={styles.emptyListText}>
-                  Add some books to your favorites first
-                </Text>
-              </View>
-            }
-          />
-        </View>
-      </Modal>
-    </View>
+                <X className="w-6 h-6" />
+              </button>
+              <h2 className="text-lg font-bold text-white">Select Book</h2>
+              <div className="w-6" /> {/* Spacer for alignment */}
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto p-4">
+              {favorites.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Search className="w-12 h-12 text-gray-300 mb-4" />
+                  <p className="text-textLight text-center">
+                    Add some books to your favorites first
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {favorites.map((item) => (
+                    <button 
+                      key={item.id}
+                      className="flex items-center w-full p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                      onClick={() => handleBookSelected(item)}
+                    >
+                      <img src={item.coverUrl} alt={item.title} className="w-16 h-24 object-cover rounded" />
+                      <div className="ml-4">
+                        <h3 className="font-medium text-text">{item.title}</h3>
+                        <p className="text-sm text-textLight">{item.author}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: THEME.surface,
-    borderRadius: 12,
-    padding: 20,
-    marginTop: 15,
-    marginHorizontal: 15,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  header: {
-    marginBottom: 20,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: THEME.text,
-    marginLeft: 10,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: THEME.textLight,
-  },
-  booksContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  bookSlotContainer: {
-    width: '48%',
-    marginBottom: 15,
-  },
-  bookSlotWrapper: {
-    flex: 1,
-  },
-  emptySlot: {
-    height: 200,
-    backgroundColor: 'rgba(167, 93, 93, 0.1)',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: THEME.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptySlotText: {
-    color: THEME.accent,
-    marginTop: 8,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  bookSlot: {
-    height: 200,
-    backgroundColor: THEME.background,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  bookCover: {
-    width: '100%',
-    height: 120,
-    resizeMode: 'cover',
-  },
-  bookInfo: {
-    padding: 8,
-  },
-  bookTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: THEME.text,
-    marginBottom: 2,
-  },
-  bookAuthor: {
-    fontSize: 12,
-    color: THEME.textLight,
-  },
-  bookActions: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 12,
-  },
-  removeButton: {
-    padding: 4,
-  },
-  positionLabelContainer: {
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  positionLabel: {
-    color: THEME.textLight,
-    fontSize: 12,
-  },
-  positionNumber: {
-    color: THEME.textLight,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 15,
-    backgroundColor: '#111111',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  modalHeaderSpacer: {
-    width: 24,
-  },
-  closeButton: {
-    padding: 5,
-  },
-  bookList: {
-    padding: 15,
-  },
-  bookListItem: {
-    flexDirection: 'row',
-    backgroundColor: '#222222',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
-  },
-  listBookCover: {
-    width: 60,
-    height: 90,
-    borderRadius: 4,
-  },
-  listBookInfo: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
-  },
-  listBookTitle: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  listBookAuthor: {
-    color: '#CCCCCC',
-    fontSize: 14,
-  },
-  emptyListContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 30,
-  },
-  emptyListText: {
-    color: '#CCCCCC',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 15,
-  },
-});

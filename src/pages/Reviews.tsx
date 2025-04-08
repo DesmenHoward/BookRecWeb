@@ -189,7 +189,7 @@ export default function Reviews() {
                           <button
                             onClick={async () => {
                               if (review.id && window.confirm('Are you sure you want to delete this review?')) {
-                                await deleteReview(review.id, review.bookId, user.uid);
+                                await deleteReview(review.id);
                                 await getUserReviews(user.uid);
                               }
                             }}

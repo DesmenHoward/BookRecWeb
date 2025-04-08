@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom';
 
 interface ReviewProps {
   id: string;
-  bookId: string;
   userId: string;
   userName: string;
   rating: number;
@@ -18,7 +17,6 @@ interface ReviewProps {
 
 export const Review: React.FC<ReviewProps> = ({
   id,
-  bookId,
   userId,
   userName,
   rating,
@@ -39,7 +37,7 @@ export const Review: React.FC<ReviewProps> = ({
 
   const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this review?')) {
-      await deleteReview(id, bookId, userId);
+      await deleteReview(id);
     }
   };
 

@@ -1,7 +1,7 @@
 import { Edit, Camera, Award, MapPin, Link } from 'lucide-react';
 import { Icon } from './ui/Icon';
-import { UserProfile } from '../types/user';
-import { THEME } from '../theme';
+import type { UserProfile } from '@/types/user';
+import { THEME } from '@/theme';
 
 interface ProfileHeaderProps {
   profile: UserProfile | null;

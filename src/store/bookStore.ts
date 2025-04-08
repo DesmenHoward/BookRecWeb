@@ -33,6 +33,7 @@ interface BookState {
   loadUserData: () => Promise<void>;
   loadOtherUserData: (userId: string) => Promise<void>;
   searchBooks: (query: string) => Promise<Book[]>;
+  updateGenres: (genres: string[]) => Promise<void>;
 }
 
 export const useBookStore = create<BookState>()(
@@ -498,15 +499,35 @@ export const useBookStore = create<BookState>()(
           set({ isLoading: false });
         }
       },
+
+      updateGenres: async (genres: string[]) => {
+        const { user } = useAuthStore.getState();
+        if (!user) return;
+
+        try {
+          set({ isLoading: true });
+          const userRef = doc(firestore, 'users', user.uid);
+          await updateDoc(userRef, {
+            selectedGenres: genres
+          });
+          set({ selectedGenres: genres });
+          
+          // Reinitialize books with new genres
+          await get().initializeBooks(genres);
+        } catch (error) {
+          console.error('Error updating genres:', error);
+          set({ error: 'Failed to update genres' });
+        } finally {
+          set({ isLoading: false });
+        }
+      },
     }),
     {
       name: 'book-store',
       partialize: (state) => ({
-        swipedBooks: state.swipedBooks,
         favorites: state.favorites,
         topThree: state.topThree,
-        favoriteGenres: state.favoriteGenres,
-        userNickname: state.userNickname,
+        swipedBooks: state.swipedBooks,
         selectedGenres: state.selectedGenres
       })
     }

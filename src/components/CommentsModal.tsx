@@ -1,29 +1,6 @@
 import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  Modal, 
-  TouchableOpacity, 
-  TextInput, 
-  FlatList, 
-  Image,
-  Platform,
-  KeyboardAvoidingView
-} from 'react-native';
-import { X, Send, Heart, MoveVertical as MoreVertical } from 'lucide-react-native';
+import { X, Send, Heart, MoreVertical } from 'lucide-react';
 import { useUserProfileStore } from '../store/userProfileStore';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8'
-};
 
 // Default profile picture URL
 const DEFAULT_PROFILE_PICTURE = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
@@ -92,297 +69,112 @@ export default function CommentsModal({
 
   const handleReply = (userName: string) => {
     setReplyingTo(userName);
-    // Focus the input
   };
 
-  const renderComment = ({ item }: { item: Comment }) => (
-    <View style={styles.commentContainer}>
-      <Image source={{ uri: item.userAvatar }} style={styles.commentAvatar} />
-      
-      <View style={styles.commentContent}>
-        <View style={styles.commentHeader}>
-          <Text style={styles.commentUserName}>{item.userName}</Text>
-          <Text style={styles.commentTimestamp}>{item.timestamp}</Text>
-        </View>
-        
-        <Text style={styles.commentText}>{item.text}</Text>
-        
-        <View style={styles.commentActions}>
-          <TouchableOpacity 
-            style={styles.commentAction}
-            onPress={() => handleLikeComment(item.id)}
-          >
-            <Heart 
-              size={16} 
-              color={item.isLiked ? THEME.accent : THEME.textLight}
-              fill={item.isLiked ? THEME.accent : 'transparent'}
-            />
-            {item.likes > 0 && (
-              <Text style={[
-                styles.actionText,
-                item.isLiked && styles.actionTextActive
-              ]}>
-                {item.likes}
-              </Text>
-            )}
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.commentAction}
-            onPress={() => handleReply(item.userName)}
-          >
-            <Text style={styles.actionText}>Reply</Text>
-          </TouchableOpacity>
-          
-          {item.userId === profile?.id && (
-            <TouchableOpacity style={styles.commentAction}>
-              <MoreVertical size={16} color={THEME.textLight} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </View>
-  );
+  if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Comments</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        
-        <FlatList
-          data={comments}
-          renderItem={renderComment}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.commentsList}
-          ListHeaderComponent={
-            comments.length > 0 ? (
-              <Text style={styles.commentsCount}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="w-full max-w-2xl bg-white rounded-lg shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+            <X size={24} />
+          </button>
+          <h2 className="text-xl font-semibold">Comments</h2>
+          <div className="w-10" /> {/* Spacer for alignment */}
+        </div>
+
+        {/* Comments List */}
+        <div className="max-h-[60vh] overflow-y-auto p-4">
+          {comments.length > 0 ? (
+            <>
+              <p className="text-sm text-gray-600 mb-4">
                 {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
-              </Text>
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateTitle}>No Comments Yet</Text>
-                <Text style={styles.emptyStateText}>
-                  Be the first to comment on {postAuthor}'s post
-                </Text>
-              </View>
-            )
-          }
-        />
-        
-        <View style={styles.inputContainer}>
-          {replyingTo && (
-            <View style={styles.replyingContainer}>
-              <Text style={styles.replyingText}>
-                Replying to <Text style={styles.replyingName}>@{replyingTo}</Text>
-              </Text>
-              <TouchableOpacity 
-                onPress={() => setReplyingTo(null)}
-                style={styles.cancelReply}
-              >
-                <X size={16} color={THEME.textLight} />
-              </TouchableOpacity>
-            </View>
+              </p>
+              {comments.map(comment => (
+                <div key={comment.id} className="flex gap-3 mb-4">
+                  <img 
+                    src={comment.userAvatar} 
+                    alt={comment.userName}
+                    className="w-10 h-10 rounded-full"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{comment.userName}</span>
+                      <span className="text-sm text-gray-500">{comment.timestamp}</span>
+                    </div>
+                    <p className="mt-1 text-gray-800">{comment.text}</p>
+                    <div className="flex items-center gap-4 mt-2">
+                      <button 
+                        onClick={() => handleLikeComment(comment.id)}
+                        className="flex items-center gap-1 text-sm text-gray-600 hover:text-accent"
+                      >
+                        <Heart 
+                          size={16} 
+                          className={comment.isLiked ? 'fill-accent text-accent' : ''} 
+                        />
+                        {comment.likes > 0 && comment.likes}
+                      </button>
+                      <button 
+                        onClick={() => handleReply(comment.userName)}
+                        className="text-sm text-gray-600 hover:text-accent"
+                      >
+                        Reply
+                      </button>
+                      {comment.userId === profile?.id && (
+                        <button className="text-sm text-gray-600 hover:text-accent">
+                          <MoreVertical size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <h3 className="text-lg font-semibold mb-2">No Comments Yet</h3>
+              <p className="text-gray-600">
+                Be the first to comment on {postAuthor}'s post
+              </p>
+            </div>
           )}
-          
-          <View style={styles.inputRow}>
-            <Image 
-              source={{ uri: profile?.profilePicture || DEFAULT_PROFILE_PICTURE }} 
-              style={styles.inputAvatar} 
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Write a comment..."
-              placeholderTextColor="#999999"
+        </div>
+
+        {/* Input Area */}
+        <div className="border-t p-4">
+          {replyingTo && (
+            <div className="flex items-center justify-between mb-2 px-3 py-1 bg-gray-100 rounded">
+              <span className="text-sm">
+                Replying to <span className="font-semibold">@{replyingTo}</span>
+              </span>
+              <button 
+                onClick={() => setReplyingTo(null)}
+                className="p-1 hover:bg-gray-200 rounded"
+              >
+                <X size={16} className="text-gray-600" />
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
               value={newComment}
-              onChangeText={setNewComment}
-              multiline
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Write a comment..."
+              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/50"
             />
-            <TouchableOpacity 
-              style={[
-                styles.sendButton,
-                !newComment.trim() && styles.sendButtonDisabled
-              ]}
-              onPress={handleSubmitComment}
+            <button
+              onClick={handleSubmitComment}
               disabled={!newComment.trim()}
+              className="p-2 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Send size={20} color={newComment.trim() ? 'white' : '#666666'} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+              <Send size={20} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 15,
-    backgroundColor: '#111111',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  commentsList: {
-    padding: 15,
-  },
-  commentsCount: {
-    color: '#CCCCCC',
-    fontSize: 14,
-    marginBottom: 15,
-  },
-  commentContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  commentAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-  },
-  commentContent: {
-    flex: 1,
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  commentUserName: {
-    color: 'white',
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  commentTimestamp: {
-    color: '#666666',
-    fontSize: 12,
-  },
-  commentText: {
-    color: 'white',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  commentActions: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
-  commentAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  actionText: {
-    color: '#CCCCCC',
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  actionTextActive: {
-    color: THEME.accent,
-  },
-  inputContainer: {
-    borderTopWidth: 1,
-    borderTopColor: '#333333',
-    padding: 15,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 15,
-  },
-  replyingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#222222',
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  replyingText: {
-    color: '#CCCCCC',
-    fontSize: 12,
-  },
-  replyingName: {
-    color: THEME.accent,
-    fontWeight: '600',
-  },
-  cancelReply: {
-    padding: 4,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  inputAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#222222',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingTop: 10,
-    paddingBottom: 10,
-    color: 'white',
-    fontSize: 14,
-    maxHeight: 100,
-    marginRight: 10,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: THEME.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#222222',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 30,
-  },
-  emptyStateTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  emptyStateText: {
-    color: '#CCCCCC',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-});

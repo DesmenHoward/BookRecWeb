@@ -1,18 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  Modal, 
-  ScrollView,
-  Switch,
-  Platform,
-  TextInput,
-  ActivityIndicator,
-  Alert
-} from 'react-native';
-import { X, ChevronRight } from 'lucide-react-native';
+import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { useUserProfileStore } from '../store/userProfileStore';
 
 interface SettingsModalProps {
@@ -51,358 +38,255 @@ export default function SettingsModal({ visible, onClose, type }: SettingsModalP
         displayName: profile.displayName || '',
         location: profile.location || '',
         website: profile.website || '',
-        language: 'English',
+        language: profile.language || 'English',
         socialLinks: {
-          twitter: profile.socialLinks?.twitter || '',
+          Twitter: profile.socialLinks?.twitter || '',
           instagram: profile.socialLinks?.instagram || '',
           goodreads: profile.socialLinks?.goodreads || ''
         }
       });
-      setError(null);
     }
   }, [visible, profile]);
 
-  // Early return if profile is not loaded
-  if (!profile) {
-    return null;
-  }
-  
-  const handleInputChange = (field: string, value: string) => {
-    if (field.includes('.')) {
-      // Handle nested fields (e.g., socialLinks.twitter)
-      const [parent, child] = field.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent as keyof typeof prev],
-          [child]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
-    }
-  };
-
-  const validateForm = () => {
-    if (!formData.username.trim()) {
-      setError('Username is required');
-      return false;
-    }
-    if (!formData.displayName.trim()) {
-      setError('Display name is required');
-      return false;
-    }
-    if (formData.website && !formData.website.includes('.')) {
-      setError('Please enter a valid website');
-      return false;
-    }
-    return true;
-  };
-
-  const handleSaveSettings = async () => {
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    setError(null);
-
+  const handleSave = async () => {
     try {
+      setIsLoading(true);
+      setError(null);
+      
       await updateProfile({
         username: formData.username,
         displayName: formData.displayName,
         location: formData.location,
         website: formData.website,
-        socialLinks: formData.socialLinks
+        language: formData.language,
+        socialLinks: {
+          twitter: formData.socialLinks.Twitter,
+          instagram: formData.socialLinks.instagram,
+          goodreads: formData.socialLinks.goodreads
+        }
       });
-
-      Alert.alert(
-        'Settings Saved',
-        'Your account settings have been updated successfully.',
-        [{ text: 'OK', onPress: onClose }]
-      );
+      
+      onClose();
     } catch (err) {
-      setError('Failed to save settings. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to update settings');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Render different content based on settings type
   const renderContent = () => {
     switch (type) {
       case 'settings':
-      default:
         return (
-          <View style={styles.settingsContainer}>
-            <Text style={styles.sectionTitle}>Account Settings</Text>
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Account Settings</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    disabled
+                    className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Username</label>
+                  <input
+                    type="text"
+                    value={formData.username}
+                    onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Display Name</label>
+                  <input
+                    type="text"
+                    value={formData.displayName}
+                    onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Location</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Website</label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Language</label>
+                  <select
+                    value={formData.language}
+                    onChange={(e) => setFormData(prev => ({ ...prev, language: e.target.value }))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                  >
+                    <option value="English">English</option>
+                    <option value="Spanish">Spanish</option>
+                    <option value="French">French</option>
+                    <option value="German">German</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Social Links</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Twitter</label>
+                  <input
+                    type="text"
+                    value={formData.socialLinks.Twitter}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      socialLinks: { ...prev.socialLinks, Twitter: e.target.value }
+                    }))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Instagram</label>
+                  <input
+                    type="text"
+                    value={formData.socialLinks.instagram}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      socialLinks: { ...prev.socialLinks, instagram: e.target.value }
+                    }))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Goodreads</label>
+                  <input
+                    type="text"
+                    value={formData.socialLinks.goodreads}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      socialLinks: { ...prev.socialLinks, goodreads: e.target.value }
+                    }))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                  />
+                </div>
+              </div>
+            </div>
 
             {error && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
+              <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
             )}
-            
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.email}
-                editable={false}
-                placeholderTextColor="#666666"
-              />
-            </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Username</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.username}
-                onChangeText={(value) => handleInputChange('username', value)}
-                placeholder="Enter username"
-                placeholderTextColor="#666666"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Display Name</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.displayName}
-                onChangeText={(value) => handleInputChange('displayName', value)}
-                placeholder="Enter display name"
-                placeholderTextColor="#666666"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Location</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.location}
-                onChangeText={(value) => handleInputChange('location', value)}
-                placeholder="Enter location"
-                placeholderTextColor="#666666"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Website</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.website}
-                onChangeText={(value) => handleInputChange('website', value)}
-                placeholder="Enter website"
-                placeholderTextColor="#666666"
-                keyboardType="url"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Language</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.language}
-                editable={false}
-                placeholderTextColor="#666666"
-              />
-            </View>
-
-            <Text style={styles.sectionTitle}>Social Links</Text>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>X</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.socialLinks.twitter}
-                onChangeText={(value) => handleInputChange('socialLinks.twitter', value)}
-                placeholder="@username"
-                placeholderTextColor="#666666"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Instagram</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.socialLinks.instagram}
-                onChangeText={(value) => handleInputChange('socialLinks.instagram', value)}
-                placeholder="@username"
-                placeholderTextColor="#666666"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Goodreads</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.socialLinks.goodreads}
-                onChangeText={(value) => handleInputChange('socialLinks.goodreads', value)}
-                placeholder="username"
-                placeholderTextColor="#666666"
-              />
-            </View>
-
-            <TouchableOpacity 
-              style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
-              onPress={handleSaveSettings}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              )}
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.settingOption, styles.dangerOption]}
-              onPress={() => Alert.alert(
-                'Delete Account',
-                'Are you sure you want to delete your account? This action cannot be undone.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Account Deleted', 'Your account would be deleted.') }
-                ]
-              )}
-            >
-              <Text style={styles.dangerText}>Delete Account</Text>
-            </TouchableOpacity>
-          </View>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isLoading}
+                className={`
+                  px-4 py-2 text-sm font-medium text-white rounded-md
+                  ${isLoading ? 'bg-primary/70' : 'bg-primary hover:bg-primary/90'}
+                `}
+              >
+                {isLoading ? (
+                  <div className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Saving...
+                  </div>
+                ) : 'Save Changes'}
+              </button>
+            </div>
+          </div>
         );
+
+      case 'privacy':
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Privacy Settings</h3>
+            {/* Add privacy settings UI here */}
+          </div>
+        );
+
+      case 'notifications':
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Notification Preferences</h3>
+            {/* Add notification settings UI here */}
+          </div>
+        );
+
+      case 'appearance':
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Appearance Settings</h3>
+            {/* Add appearance settings UI here */}
+          </div>
+        );
+
+      case 'help':
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Help & Support</h3>
+            {/* Add help content here */}
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
-  
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
-    >
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {type === 'settings' && 'Account Settings'}
-            {type === 'privacy' && 'Privacy'}
-            {type === 'notifications' && 'Notifications'}
-            {type === 'appearance' && 'Appearance'}
-            {type === 'help' && 'Help & Support'}
-          </Text>
-          <View style={styles.placeholder} />
-        </View>
-        
-        <ScrollView style={styles.scrollView}>
-          {renderContent()}
-        </ScrollView>
-      </View>
-    </Modal>
+    <div className={`fixed inset-0 z-50 ${visible ? 'flex' : 'hidden'}`}>
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      
+      <div className="relative w-full max-w-2xl mx-auto my-8">
+        <div className="bg-white rounded-lg shadow-xl">
+          <div className="flex items-center justify-between px-6 py-4 border-b">
+            <h2 className="text-xl font-semibold">{type.charAt(0).toUpperCase() + type.slice(1)}</h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X size={24} className="text-gray-500" />
+            </button>
+          </div>
+
+          <div className="p-6 max-h-[calc(100vh-12rem)] overflow-y-auto">
+            {renderContent()}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 15,
-    backgroundColor: '#111111',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  placeholder: {
-    width: 34,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  settingsContainer: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 20,
-  },
-  errorContainer: {
-    backgroundColor: 'rgba(255, 0, 0, 0.1)',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  errorText: {
-    color: '#FF3B30',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  formGroup: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    color: 'white',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#222222',
-    borderRadius: 8,
-    padding: 12,
-    color: 'white',
-    fontSize: 16,
-  },
-  saveButton: {
-    backgroundColor: '#FF0000',
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  settingOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-  },
-  dangerOption: {
-    marginTop: 30,
-    justifyContent: 'center',
-    borderBottomWidth: 0,
-  },
-  dangerText: {
-    color: '#FF3B30',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
-
-export default SettingsModal

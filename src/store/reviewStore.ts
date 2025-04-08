@@ -12,6 +12,7 @@ interface Review {
   text: string;
   createdAt: Date;
   updatedAt?: Date;
+  isPublic?: boolean;
 }
 
 interface ReviewState {
@@ -25,10 +26,11 @@ interface ReviewState {
   getBookReviews: (bookId: string) => Promise<Review[]>;
   getUserReviews: (userId: string) => Promise<Review[]>;
   addReview: (review: Omit<Review, 'id' | 'createdAt'> & { bookTitle: string }) => Promise<void>;
-  updateReview: (reviewId: string, updates: Partial<Pick<Review, 'rating' | 'text'>>) => Promise<void>;
-  deleteReview: (reviewId: string, bookId: string, userId: string) => Promise<void>;
+  updateReview: (reviewId: string, updates: Partial<Pick<Review, 'rating' | 'text' | 'isPublic'>>) => Promise<void>;
+  deleteReview: (reviewId: string) => Promise<void>;
   setEditingReviewId: (reviewId: string | null) => void;
   clearError: () => void;
+  toggleReviewVisibility: (reviewId: string) => Promise<void>;
 }
 
 export const useReviewStore = create<ReviewState>()((set, get) => ({
@@ -162,7 +164,7 @@ export const useReviewStore = create<ReviewState>()((set, get) => ({
     }
   },
 
-  updateReview: async (reviewId: string, updates: Partial<Pick<Review, 'rating' | 'text'>>) => {
+  updateReview: async (reviewId: string, updates: Partial<Pick<Review, 'rating' | 'text' | 'isPublic'>>) => {
     set({ isLoading: true, error: null });
     try {
       if (updates.text !== undefined && !updates.text.trim()) {
@@ -195,15 +197,18 @@ export const useReviewStore = create<ReviewState>()((set, get) => ({
     } catch (error) {
       console.error('Failed to update review:', error);
       // Revert optimistic update
-      get().getBookReviews(get().reviews[0]?.bookId);
-      get().getUserReviews(get().reviews[0]?.userId);
+      const firstReview = get().reviews[0];
+      if (firstReview) {
+        get().getBookReviews(firstReview.bookId);
+        get().getUserReviews(firstReview.userId);
+      }
       set({ error: error instanceof Error ? error.message : 'Failed to update review' });
     } finally {
       set({ isLoading: false });
     }
   },
 
-  deleteReview: async (reviewId: string, bookId: string, userId: string) => {
+  deleteReview: async (reviewId: string) => {
     set({ isLoading: true, error: null });
     try {
       const reviewRef = doc(firestore, 'reviews', reviewId);
@@ -218,8 +223,11 @@ export const useReviewStore = create<ReviewState>()((set, get) => ({
     } catch (error) {
       console.error('Failed to delete review:', error);
       // Revert optimistic delete
-      get().getBookReviews(bookId);
-      get().getUserReviews(userId);
+      const firstReview = get().reviews[0];
+      if (firstReview) {
+        get().getBookReviews(firstReview.bookId);
+        get().getUserReviews(firstReview.userId);
+      }
       set({ error: 'Failed to delete review' });
     } finally {
       set({ isLoading: false });
@@ -232,5 +240,48 @@ export const useReviewStore = create<ReviewState>()((set, get) => ({
 
   clearError: () => {
     set({ error: null });
+  },
+
+  toggleReviewVisibility: async (reviewId: string) => {
+    set({ isLoading: true });
+    try {
+      const reviewRef = doc(firestore, 'reviews', reviewId);
+      const reviewDoc = await getDoc(reviewRef);
+      
+      if (!reviewDoc.exists()) {
+        throw new Error('Review not found');
+      }
+      
+      const currentIsPublic = reviewDoc.data()?.isPublic ?? false;
+      
+      // Optimistic update
+      set((state) => ({
+        reviews: state.reviews.map(review =>
+          review.id === reviewId
+            ? { ...review, isPublic: !review.isPublic }
+            : review
+        ),
+        allUserReviews: state.allUserReviews.map(review =>
+          review.id === reviewId
+            ? { ...review, isPublic: !review.isPublic }
+            : review
+        )
+      }));
+
+      await updateDoc(reviewRef, {
+        isPublic: !currentIsPublic
+      });
+    } catch (error) {
+      console.error('Failed to toggle review visibility:', error);
+      // Revert optimistic update
+      const firstReview = get().reviews[0];
+      if (firstReview) {
+        get().getBookReviews(firstReview.bookId);
+        get().getUserReviews(firstReview.userId);
+      }
+      set({ error: error instanceof Error ? error.message : 'Failed to toggle review visibility' });
+    } finally {
+      set({ isLoading: false });
+    }
   }
 }));

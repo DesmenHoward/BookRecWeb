@@ -1,198 +1,84 @@
-import React from 'react';
-import { StyleSheet, View, Text, Image, TouchableOpacity, Platform } from 'react-native';
-import { CreditCard as Edit, Camera, MapPin, Link, Award } from 'lucide-react-native';
-import { useUserProfileStore } from '../store/userProfileStore';
-import { useBookStore } from '../store/bookStore';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8'
-};
+import { Edit, Camera, Award, MapPin, Link } from 'lucide-react';
+import { Icon } from './ui/Icon';
+import { UserProfile } from '../types/user';
+import { THEME } from '../theme';
 
 interface ProfileHeaderProps {
+  profile: UserProfile | null;
   onEditProfile: () => void;
-  onChangePhoto: () => void;
+  onPhotoChange: () => void;
 }
 
-export default function ProfileHeader({ onEditProfile, onChangePhoto }: ProfileHeaderProps) {
-  const { profile } = useUserProfileStore();
-  const { userNickname } = useBookStore();
-  
+export default function ProfileHeader({ profile, onEditProfile, onPhotoChange }: ProfileHeaderProps) {
+  if (!profile) {
+    return null;
+  }
+
   return (
-    <View style={styles.container}>
-      <View style={styles.coverPhoto}>
-        <TouchableOpacity 
-          style={styles.editButton}
-          onPress={onEditProfile}
+    <div className="relative bg-surface rounded-lg p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={onEditProfile}
+          className="p-2 rounded-full bg-accent hover:bg-accent/90 transition-colors"
         >
-          <Edit size={18} color="white" />
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.profilePhotoContainer}>
-        <Image 
-          source={{ uri: profile.profilePicture }} 
-          style={styles.profilePhoto} 
+          <Icon icon={Edit} size={18} color="white" />
+        </button>
+      </div>
+
+      <div className="relative w-24 h-24 mx-auto mb-4">
+        <img
+          src={profile.profilePicture}
+          alt={profile.displayName}
+          className="w-full h-full rounded-full object-cover"
         />
-        <TouchableOpacity 
-          style={styles.changePhotoButton}
-          onPress={onChangePhoto}
+        <button
+          onClick={onPhotoChange}
+          className="absolute bottom-0 right-0 p-2 rounded-full bg-accent hover:bg-accent/90 transition-colors"
         >
-          <Camera size={18} color="white" />
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.userInfoContainer}>
-        <Text style={styles.displayName}>{profile.displayName}</Text>
-        <Text style={styles.username}>@{profile.username}</Text>
-        
-        {userNickname && (
-          <View style={styles.nicknameContainer}>
-            <Award size={16} color={THEME.accent} style={styles.nicknameIcon} />
-            <Text style={styles.nickname}>{userNickname}</Text>
-          </View>
+          <Icon icon={Camera} size={18} color="white" />
+        </button>
+      </div>
+
+      <div className="text-center mb-4">
+        <h2 className="text-2xl font-bold text-text">{profile.displayName}</h2>
+        <p className="text-text-light">@{profile.username}</p>
+      </div>
+
+      {profile.nickname && (
+        <div className="flex items-center justify-center mb-4">
+          <Icon icon={Award} size={16} color={THEME.accent} className="mr-2" />
+          <span className="text-text-light">{profile.nickname}</span>
+        </div>
+      )}
+
+      <p className="text-text text-center mb-4">{profile.bio}</p>
+
+      <div className="flex flex-col items-center gap-2">
+        {profile.location && (
+          <div className="flex items-center">
+            <Icon icon={MapPin} size={16} color={THEME.textLight} className="mr-2" />
+            <span className="text-text-light">{profile.location}</span>
+          </div>
         )}
-        
-        <Text style={styles.bio}>{profile.bio}</Text>
-        
-        <View style={styles.detailsContainer}>
-          {profile.location && (
-            <View style={styles.detailItem}>
-              <MapPin size={16} color={THEME.textLight} />
-              <Text style={styles.detailText}>{profile.location}</Text>
-            </View>
-          )}
-          
-          {profile.website && (
-            <View style={styles.detailItem}>
-              <Link size={16} color={THEME.textLight} />
-              <Text style={styles.detailText}>{profile.website}</Text>
-            </View>
-          )}
-          
-          <Text style={styles.joinDate}>Joined {profile.joinDate}</Text>
-        </View>
-      </View>
-    </View>
+
+        {profile.website && (
+          <div className="flex items-center">
+            <Icon icon={Link} size={16} color={THEME.textLight} className="mr-2" />
+            <a
+              href={profile.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-text-light hover:text-accent transition-colors"
+            >
+              {profile.website}
+            </a>
+          </div>
+        )}
+
+        <p className="text-text-light text-sm mt-2">
+          Joined {new Date(profile.joinDate).toLocaleDateString()}
+        </p>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: THEME.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.border,
-  },
-  coverPhoto: {
-    height: 60,
-    backgroundColor: THEME.primary,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingRight: 15,
-  },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(167, 93, 93, 0.8)',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-  },
-  editButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    marginLeft: 5,
-  },
-  profilePhotoContainer: {
-    position: 'relative',
-    marginTop: -50,
-    marginLeft: 20,
-    width: 100,
-    height: 100,
-  },
-  profilePhoto: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 4,
-    borderColor: THEME.surface,
-  },
-  changePhotoButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: THEME.accent,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: THEME.surface,
-  },
-  userInfoContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
-  },
-  displayName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: THEME.text,
-    marginBottom: 2,
-  },
-  username: {
-    fontSize: 16,
-    color: THEME.textLight,
-    marginBottom: 8,
-  },
-  nicknameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(167, 93, 93, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 15,
-    alignSelf: 'flex-start',
-  },
-  nicknameIcon: {
-    marginRight: 6,
-  },
-  nickname: {
-    color: THEME.accent,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  bio: {
-    fontSize: 16,
-    color: THEME.text,
-    lineHeight: 22,
-    marginBottom: 15,
-  },
-  detailsContainer: {
-    flexDirection: 'column',
-    gap: 8,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  detailText: {
-    color: THEME.textLight,
-    marginLeft: 8,
-    fontSize: 14,
-  },
-  joinDate: {
-    color: THEME.textLight,
-    fontSize: 14,
-    marginTop: 5,
-  },
-});

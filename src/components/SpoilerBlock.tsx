@@ -1,14 +1,5 @@
 import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  Platform,
-  Animated,
-  Easing
-} from 'react-native';
-import { TriangleAlert, Eye } from 'lucide-react-native';
+import { TriangleAlert, Eye } from 'lucide-react';
 
 // Theme colors
 const THEME = {
@@ -38,184 +29,76 @@ export default function SpoilerBlock({
   blurIntensity = 5
 }: SpoilerBlockProps) {
   const [revealed, setRevealed] = useState(false);
-  const [animatedValue] = useState(new Animated.Value(0));
   
   const toggleReveal = () => {
-    if (!revealed) {
-      // Animate reveal
-      Animated.timing(animatedValue, {
-        toValue: 1,
-        duration: 300,
-        easing: Easing.ease,
-        useNativeDriver: false,
-      }).start();
-    } else {
-      // Animate hide
-      Animated.timing(animatedValue, {
-        toValue: 0,
-        duration: 200,
-        easing: Easing.ease,
-        useNativeDriver: false,
-      }).start();
-    }
-    
     setRevealed(!revealed);
   };
-  
-  // Get spoiler type styling and text
+
   const getSpoilerTypeInfo = () => {
     switch (spoilerType) {
       case 'plot':
         return {
           color: THEME.warning,
           text: 'Plot Spoiler',
-          icon: <TriangleAlert size={16} color={THEME.warning} />
+          icon: <TriangleAlert size={20} style={{ color: THEME.warning }} />
         };
       case 'ending':
         return {
           color: THEME.error,
           text: 'Ending Spoiler',
-          icon: <TriangleAlert size={16} color={THEME.error} />
+          icon: <TriangleAlert size={20} style={{ color: THEME.error }} />
         };
       case 'sensitive':
         return {
           color: THEME.primary,
           text: 'Sensitive Content',
-          icon: <TriangleAlert size={16} color={THEME.primary} />
+          icon: <TriangleAlert size={20} style={{ color: THEME.primary }} />
         };
       case 'general':
       default:
         return {
           color: THEME.info,
           text: 'Spoiler',
-          icon: <TriangleAlert size={16} color={THEME.info} />
+          icon: <TriangleAlert size={20} style={{ color: THEME.info }} />
         };
     }
   };
-  
+
   const typeInfo = getSpoilerTypeInfo();
-  
-  // Animated styles
-  const blurRadius = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [blurIntensity, 0]
-  });
-  
-  const overlayOpacity = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.9, 0]
-  });
-  
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity 
-        activeOpacity={0.9}
-        onPress={toggleReveal}
-        style={styles.spoilerContainer}
+    <div className="my-2.5 rounded-lg overflow-hidden">
+      <button
+        onClick={toggleReveal}
+        className={`
+          w-full p-3 flex items-center justify-between
+          ${revealed ? 'bg-gray-100' : 'bg-gray-50'}
+          hover:bg-gray-100 transition-colors
+          border-b border-gray-200
+        `}
       >
-        {/* Content (blurred when not revealed) */}
-        <Animated.View 
-          style={[
-            styles.contentContainer,
-            { 
-              filter: Platform.OS === 'web' ? `blur(${blurRadius}px)` : undefined,
-            }
-          ]}
-        >
-          {content}
-        </Animated.View>
-        
-        {/* Overlay (visible when not revealed) */}
-        <Animated.View 
-          style={[
-            styles.overlay,
-            { 
-              opacity: overlayOpacity,
-              backgroundColor: revealed ? 'transparent' : THEME.surface,
-              borderColor: typeInfo.color,
-            }
-          ]}
-        >
-          {!revealed && (
-            <View style={styles.warningContainer}>
-              <View style={styles.spoilerTypeContainer}>
-                {typeInfo.icon}
-                <Text style={[styles.spoilerTypeText, { color: typeInfo.color }]}>
-                  {typeInfo.text}
-                </Text>
-              </View>
-              
-              <Text style={styles.warningText}>{warningText}</Text>
-              
-              <View style={styles.revealButton}>
-                <Eye size={16} color="white" />
-                <Text style={styles.revealButtonText}>Tap to reveal</Text>
-              </View>
-            </View>
-          )}
-        </Animated.View>
-      </TouchableOpacity>
-    </View>
+        <div className="flex items-center space-x-2">
+          {typeInfo.icon}
+          <span className="text-sm font-medium" style={{ color: typeInfo.color }}>
+            {typeInfo.text}
+          </span>
+          <span className="text-sm font-medium" style={{ color: THEME.text }}>
+            {warningText}
+          </span>
+        </div>
+        <Eye size={20} style={{ color: THEME.textLight }} />
+      </button>
+      
+      <div 
+        className={`
+          p-4 bg-white
+          ${revealed ? '' : 'blur-sm'}
+          transition-all duration-300
+        `}
+        style={{ filter: revealed ? 'none' : `blur(${blurIntensity}px)` }}
+      >
+        {content}
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginVertical: 10,
-  },
-  spoilerContainer: {
-    position: 'relative',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  contentContainer: {
-    backgroundColor: THEME.background,
-    padding: 15,
-    borderRadius: 8,
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  warningContainer: {
-    alignItems: 'center',
-    padding: 15,
-  },
-  spoilerTypeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  spoilerTypeText: {
-    fontWeight: 'bold',
-    marginLeft: 5,
-    fontSize: 14,
-  },
-  warningText: {
-    color: THEME.text,
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  revealButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: THEME.accent,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-  },
-  revealButtonText: {
-    color: 'white',
-    marginLeft: 8,
-    fontSize: 14,
-  },
-});

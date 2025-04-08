@@ -22,17 +22,29 @@ export default function BookCard({
   return (
     <div className="relative w-full max-w-sm bg-white rounded-xl shadow-lg overflow-hidden">
       <div className="relative h-96">
-        <img 
-          src={book.coverUrl} 
-          alt={book.title}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        {/* Book spine effect */}
+        <div className="absolute left-0 top-0 bottom-0 w-[12px] bg-gray-200 shadow-inner z-10" />
+        
+        {/* Main cover */}
+        <div className="absolute inset-0 ml-[12px]">
+          <img 
+            src={book.coverUrl} 
+            alt={book.title}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        </div>
+        
+        {/* Page edge effect */}
+        <div className="absolute right-0 top-0 bottom-0 w-[20px] bg-gradient-to-l from-white via-gray-100 to-gray-200 transform skew-y-[45deg] origin-top-right" />
+        
+        {/* Bookmark */}
+        <div className="absolute -right-2 top-4 w-[24px] h-[60px] bg-accent transform -rotate-12 z-20 shadow-md" />
         
         {showFavoriteButton && (
           <button
             onClick={onFavoriteToggle}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/90 hover:bg-white transition-colors"
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/90 hover:bg-white transition-colors z-30"
           >
             <Heart 
               size={24} 
@@ -41,7 +53,7 @@ export default function BookCard({
           </button>
         )}
         
-        <div className="absolute bottom-0 left-0 right-0 p-4">
+        <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
           <div className="flex flex-wrap gap-2 mb-2">
             {book.genres.slice(0, 3).map((genre, index) => (
               <span 

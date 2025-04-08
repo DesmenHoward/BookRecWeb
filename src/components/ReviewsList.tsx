@@ -1,20 +1,9 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { useState } from 'react';
 import { useReviewStore } from '../store/reviewStore';
 import ReviewCard from './ReviewCard';
-import { BookOpen, Plus, CreditCard as Edit, Trash2 } from 'lucide-react-native';
+import { BookOpen, Plus } from 'lucide-react';
 import BookReviewModal from './BookReviewModal';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8'
-};
+import { Review } from '../types/review';
 
 interface ReviewsListProps {
   onAddReview: () => void;
@@ -24,7 +13,7 @@ interface ReviewsListProps {
 export default function ReviewsList({ onAddReview, showOnlyPublic = false }: ReviewsListProps) {
   const { reviews, toggleReviewVisibility, deleteReview, updateReview } = useReviewStore();
   const [editReviewModalVisible, setEditReviewModalVisible] = useState(false);
-  const [selectedReview, setSelectedReview] = useState<any | null>(null);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   
   // Filter reviews based on showOnlyPublic prop
   const filteredReviews = showOnlyPublic 
@@ -32,87 +21,68 @@ export default function ReviewsList({ onAddReview, showOnlyPublic = false }: Rev
     : reviews;
   
   const handleToggleVisibility = (reviewId: string) => {
-    toggleReviewVisibility(reviewId);
+    if (reviewId) {
+      toggleReviewVisibility(reviewId);
+    }
   };
   
-  const handleEditReview = (review: any) => {
+  const handleEditReview = (review: Review) => {
     setSelectedReview(review);
     setEditReviewModalVisible(true);
   };
   
-  const handleUpdateReview = (updatedReview: any) => {
-    updateReview(updatedReview.id, updatedReview);
+  const handleUpdateReview = (updatedReview: Partial<Review> & { id: string }) => {
+    updateReview(updatedReview.id, {
+      rating: updatedReview.rating,
+      text: updatedReview.text,
+      isPublic: updatedReview.isPublic
+    });
     setEditReviewModalVisible(false);
     setSelectedReview(null);
-    
-    // Show success message
-    Alert.alert(
-      'Review Updated',
-      'Your book review has been successfully updated!',
-      [{ text: 'OK' }]
-    );
   };
   
   const handleDeleteReview = (reviewId: string) => {
-    Alert.alert(
-      'Delete Review',
-      'Are you sure you want to delete this review? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            deleteReview(reviewId);
-            Alert.alert('Review Deleted', 'Your review has been deleted.');
-          },
-        },
-      ]
-    );
+    if (reviewId && confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+      deleteReview(reviewId);
+    }
   };
-  
-  if (filteredReviews.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <BookOpen size={50} color={THEME.textLight} />
-        <Text style={styles.emptyTitle}>No Reviews Yet</Text>
-        <Text style={styles.emptyMessage}>
-          {showOnlyPublic 
-            ? 'There are no public reviews to show.'
-            : 'You haven\'t written any book reviews yet.'}
-        </Text>
-        {!showOnlyPublic && (
-          <TouchableOpacity style={styles.addButton} onPress={onAddReview}>
-            <Plus size={20} color="white" />
-            <Text style={styles.addButtonText}>Write a Review</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  }
-  
+
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={filteredReviews}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ReviewCard 
-            review={item}
-            showActions={!showOnlyPublic}
-            onToggleVisibility={() => handleToggleVisibility(item.id)}
-            onEdit={() => handleEditReview(item)}
-            onDelete={() => handleDeleteReview(item.id)}
-          />
-        )}
-        contentContainerStyle={styles.listContent}
-      />
-      
-      {/* Edit Review Modal */}
-      {selectedReview && (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold text-gray-900">Reviews</h2>
+        <button
+          onClick={onAddReview}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary/90"
+        >
+          <Plus size={16} />
+          Add Review
+        </button>
+      </div>
+
+      {filteredReviews.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+          <BookOpen size={48} className="mb-4" />
+          <p className="text-lg font-medium">No reviews yet</p>
+          <p className="text-sm">Share your thoughts on the books you've read!</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredReviews.filter(review => review.id).map(review => (
+            <div key={review.id} className="relative">
+              <ReviewCard
+                review={review}
+                showActions={!showOnlyPublic}
+                onToggleVisibility={() => review.id && handleToggleVisibility(review.id)}
+                onEdit={() => handleEditReview(review)}
+                onDelete={() => review.id && handleDeleteReview(review.id)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editReviewModalVisible && selectedReview && (
         <BookReviewModal
           visible={editReviewModalVisible}
           onClose={() => {
@@ -120,53 +90,9 @@ export default function ReviewsList({ onAddReview, showOnlyPublic = false }: Rev
             setSelectedReview(null);
           }}
           onSubmit={handleUpdateReview}
-          initialBook={selectedReview.book}
           initialReview={selectedReview}
         />
       )}
-    </View>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    minHeight: 300,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: THEME.text,
-    marginTop: 15,
-    marginBottom: 10,
-  },
-  emptyMessage: {
-    fontSize: 14,
-    color: THEME.textLight,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: THEME.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-  },
-  addButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginLeft: 8,
-  },
-});

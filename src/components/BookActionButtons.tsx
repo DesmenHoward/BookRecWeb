@@ -1,22 +1,6 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import { BookOpen, Clock, X } from 'lucide-react-native';
+import { BookOpen, Clock, X } from 'lucide-react';
 import { Book } from '../types/book';
 import { useBookStore } from '../store/bookStore';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8',
-  success: '#6B9080',
-  warning: '#DDA15E',
-  error: '#BC6C25'
-};
 
 interface BookActionButtonsProps {
   book: Book;
@@ -30,7 +14,7 @@ export default function BookActionButtons({ book }: BookActionButtonsProps) {
   };
   
   const handleReadLater = () => {
-    updateBookStatus(book.id, 'read-later');
+    updateBookStatus(book.id, 'read');
   };
   
   const handleNotInterested = () => {
@@ -40,111 +24,51 @@ export default function BookActionButtons({ book }: BookActionButtonsProps) {
   // If the book already has a status, show that status
   if (book.status) {
     return (
-      <View style={styles.statusContainer}>
-        <View style={[
-          styles.statusBadge,
-          book.status === 'already-read' && styles.alreadyReadBadge,
-          book.status === 'read-later' && styles.readLaterBadge,
-          book.status === 'not-interested' && styles.notInterestedBadge,
-        ]}>
-          {book.status === 'already-read' && <BookOpen size={16} color="white" style={styles.statusIcon} />}
-          {book.status === 'read-later' && <Clock size={16} color="white" style={styles.statusIcon} />}
-          {book.status === 'not-interested' && <X size={16} color="white" style={styles.statusIcon} />}
-          
-          <Text style={styles.statusText}>
-            {book.status === 'already-read' && 'Already Read'}
-            {book.status === 'read-later' && 'Read Later'}
-            {book.status === 'not-interested' && 'Not Interested'}
-          </Text>
-        </View>
-      </View>
+      <div className="flex items-center justify-center p-2 rounded-lg">
+        <div className={`
+          flex items-center px-3 py-1 rounded-full text-white
+          ${book.status === 'already-read' ? 'bg-success' : ''}
+          ${book.status === 'read' ? 'bg-warning' : ''}
+          ${book.status === 'not-interested' ? 'bg-error' : ''}
+        `}>
+          {book.status === 'already-read' && <BookOpen size={16} className="mr-1" />}
+          {book.status === 'read' && <Clock size={16} className="mr-1" />}
+          {book.status === 'not-interested' && <X size={16} className="mr-1" />}
+          <span className="text-sm">
+            {book.status === 'already-read' ? 'Read' : 
+             book.status === 'read' ? 'Read Later' : 
+             'Not Interested'}
+          </span>
+        </div>
+      </div>
     );
   }
-  
-  // Otherwise, show the action buttons
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity 
-        style={[styles.button, styles.alreadyReadButton]} 
-        onPress={handleAlreadyRead}
+    <div className="flex flex-col gap-2 mt-4 mb-1">
+      <button
+        onClick={handleAlreadyRead}
+        className="flex items-center justify-center px-4 py-2 rounded-lg bg-success text-white hover:bg-success/90 transition-colors"
       >
-        <BookOpen size={18} color="white" />
-        <Text style={styles.buttonText}>Already Read</Text>
-      </TouchableOpacity>
+        <BookOpen size={16} className="mr-2" />
+        <span>Already Read</span>
+      </button>
       
-      <TouchableOpacity 
-        style={[styles.button, styles.readLaterButton]} 
-        onPress={handleReadLater}
+      <button
+        onClick={handleReadLater}
+        className="flex items-center justify-center px-4 py-2 rounded-lg bg-warning text-white hover:bg-warning/90 transition-colors"
       >
-        <Clock size={18} color="white" />
-        <Text style={styles.buttonText}>Read Later</Text>
-      </TouchableOpacity>
+        <Clock size={16} className="mr-2" />
+        <span>Read Later</span>
+      </button>
       
-      <TouchableOpacity 
-        style={[styles.button, styles.notInterestedButton]} 
-        onPress={handleNotInterested}
+      <button
+        onClick={handleNotInterested}
+        className="flex items-center justify-center px-4 py-2 rounded-lg bg-error text-white hover:bg-error/90 transition-colors"
       >
-        <X size={18} color="white" />
-        <Text style={styles.buttonText}>Not Interested</Text>
-      </TouchableOpacity>
-    </View>
+        <X size={16} className="mr-2" />
+        <span>Not Interested</span>
+      </button>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    marginTop: 15,
-    marginBottom: 5,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    marginBottom: 10,
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  alreadyReadButton: {
-    backgroundColor: THEME.success,
-  },
-  readLaterButton: {
-    backgroundColor: THEME.warning,
-  },
-  notInterestedButton: {
-    backgroundColor: THEME.error,
-  },
-  statusContainer: {
-    marginTop: 15,
-    marginBottom: 5,
-    alignItems: 'center',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-  },
-  statusIcon: {
-    marginRight: 6,
-  },
-  statusText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-  alreadyReadBadge: {
-    backgroundColor: THEME.success,
-  },
-  readLaterBadge: {
-    backgroundColor: THEME.warning,
-  },
-  notInterestedBadge: {
-    backgroundColor: THEME.error,
-  },
-});

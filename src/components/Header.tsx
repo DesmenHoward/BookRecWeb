@@ -1,18 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, Search } from 'lucide-react-native';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8'
-};
+import { ArrowLeft, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   title: string;
@@ -27,70 +15,35 @@ export default function Header({
   showSearch = true,
   rightComponent 
 }: HeaderProps) {
-  const router = useRouter();
+  const navigate = useNavigate();
 
   return (
-    <View style={styles.container}>
-      <View style={styles.leftContainer}>
+    <header className="flex items-center justify-between px-4 py-3 bg-white border-b">
+      <div className="flex items-center w-1/3">
         {showBackButton && (
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <ArrowLeft size={24} color={THEME.text} />
-          </TouchableOpacity>
+          <button 
+            onClick={() => navigate(-1)}
+            className="p-2 hover:bg-gray-100 rounded-full"
+          >
+            <ArrowLeft size={24} className="text-gray-700" />
+          </button>
         )}
-      </View>
+      </div>
       
-      <Text style={styles.title}>{title}</Text>
+      <h1 className="text-xl font-semibold text-center flex-1">{title}</h1>
       
-      <View style={styles.rightContainer}>
+      <div className="flex items-center justify-end w-1/3">
         {rightComponent ? (
           rightComponent
         ) : showSearch ? (
-          <TouchableOpacity 
-            style={styles.searchButton} 
-            onPress={() => router.push('/search')}
+          <button 
+            onClick={() => navigate('/search')}
+            className="p-2 hover:bg-gray-100 rounded-full"
           >
-            <Search size={22} color={THEME.text} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.placeholder} />
-        )}
-      </View>
-    </View>
+            <Search size={24} className="text-gray-700" />
+          </button>
+        ) : null}
+      </div>
+    </header>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 10,
-    backgroundColor: THEME.background,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.border,
-  },
-  leftContainer: {
-    width: 40,
-  },
-  rightContainer: {
-    width: 40,
-    alignItems: 'flex-end',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: THEME.text,
-  },
-  backButton: {
-    padding: 5,
-  },
-  searchButton: {
-    padding: 5,
-  },
-  placeholder: {
-    width: 32,
-    height: 32,
-  },
-});

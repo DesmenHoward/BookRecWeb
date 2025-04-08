@@ -3,7 +3,7 @@ import { useBookStore } from '../store/bookStore';
 import { useAuthStore } from '../store/authStore';
 import { useUserProfileStore } from '../store/userProfileStore';
 import { useReviewStore } from '../store/reviewStore';
-import { useRouter } from 'expo-router';
+import { useNavigate } from 'react-router-dom';
 import { BookOpen, Star } from 'lucide-react';
 import Header from './Header';
 import ProfileHeader from './ProfileHeader';
@@ -19,9 +19,10 @@ import ReadingAnalytics from './ReadingAnalytics';
 import MountRushmoreBooks from './MountRushmoreBooks';
 import AdminSettings from './AdminSettings';
 import LoadingIndicator from './LoadingIndicator';
+import type { Review } from '../types/review';
 
 export default function ProfileScreen() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile, updateProfile, initializeProfile, isLoading } = useUserProfileStore();
   const { favorites } = useBookStore();
@@ -48,7 +49,7 @@ export default function ProfileScreen() {
   }
 
   if (!user || !profile) {
-    router.replace('/login');
+    navigate('/login');
     return null;
   }
 
@@ -77,6 +78,11 @@ export default function ProfileScreen() {
     updateProfile({ mountRushmoreBooks: books });
   };
 
+  const handleStatsPress = (statType: 'swiped' | 'favorites' | 'recommendations') => {
+    // Handle stats press - can be implemented later
+    console.log('Stats pressed:', statType);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 
@@ -87,9 +93,7 @@ export default function ProfileScreen() {
       
       <div className="max-w-4xl mx-auto px-4 py-6">
         <ProfileHeader 
-          displayName={profile.displayName}
-          bio={profile.bio}
-          avatar={profile.profilePicture}
+          profile={profile}
           onEditProfile={handleEditProfile}
           onPhotoChange={handlePhotoChange}
         />
@@ -121,19 +125,14 @@ export default function ProfileScreen() {
           {activeTab === 'preferences' ? (
             <>
               <ProfileStats 
-                onPressStats={() => {}}
-                stats={{
-                  read: reviews.filter(r => r.rating > 0).length,
-                  favorites: favorites.length,
-                  reviews: reviews.length
-                }}
+                onPressStats={handleStatsPress}
               />
               
               <div className="mt-6">
                 <h3 className="text-xl font-semibold mb-4">Mount Rushmore Books</h3>
                 <MountRushmoreBooks 
-                  books={profile.mountRushmoreBooks || []}
-                  onUpdateMountRushmore={handleUpdateMountRushmore}
+                  onUpdateBooks={handleUpdateMountRushmore}
+                  selectedBooks={profile.mountRushmoreBooks || []}
                 />
               </div>
 
@@ -145,55 +144,61 @@ export default function ProfileScreen() {
               <div className="mt-6">
                 <h3 className="text-xl font-semibold mb-4">Social Links</h3>
                 <ProfileSocialLinks 
-                  instagram={profile.socialLinks?.instagram}
-                  twitter={profile.socialLinks?.twitter}
-                  website={profile.socialLinks?.website}
+                  socialLinks={profile.socialLinks || {
+                    twitter: '',
+                    instagram: '',
+                    goodreads: ''
+                  }}
                 />
               </div>
             </>
           ) : (
             <ReviewsList 
+              reviews={reviews}
               onAddReview={() => setReviewModalVisible(true)}
-              userReviews={reviews}
               canEdit={true}
             />
           )}
         </div>
 
         <ProfileMenu 
-          onSettingsPress={handleSettingsPress}
-          onAdminSettings={handleAdminSettings}
-          isAdmin={profile.role === 'admin'}
+          onSettingsClick={handleSettingsPress}
+          onAdminClick={handleAdminSettings}
+          isAdmin={profile.isAdmin}
         />
       </div>
 
       {/* Modals */}
       <EditProfileModal
-        visible={editProfileModalVisible}
+        isOpen={editProfileModalVisible}
         onClose={() => setEditProfileModalVisible(false)}
-        initialProfile={profile}
+        profile={profile}
         onSave={updateProfile}
       />
 
       <ProfilePhotoModal
-        visible={photoModalVisible}
+        isOpen={photoModalVisible}
         onClose={() => setPhotoModalVisible(false)}
       />
 
       <SettingsModal
-        visible={settingsModalVisible}
+        isOpen={settingsModalVisible}
         onClose={() => setSettingsModalVisible(false)}
         type={settingsType}
       />
 
       <BookReviewModal
-        visible={reviewModalVisible}
+        isOpen={reviewModalVisible}
         onClose={() => setReviewModalVisible(false)}
-        onSubmit={addReview}
+        onSubmit={async (review) => {
+          if ('bookId' in review && 'bookTitle' in review) {
+            await addReview(review);
+          }
+        }}
       />
 
       <AdminSettings
-        visible={adminSettingsVisible}
+        isOpen={adminSettingsVisible}
         onClose={() => setAdminSettingsVisible(false)}
       />
     </div>

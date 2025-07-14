@@ -97,7 +97,7 @@ export function useFirebaseUserService() {
             allowRecommendations: true
           },
           theme: profile.theme || 'dark',
-          notificationSettings: profile.notificationSettings || {
+          notific0ationSettings: profile.notificationSettings || {
             newRecommendations: true,
             friendActivity: true,
             appUpdates: true,

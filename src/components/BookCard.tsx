@@ -6,7 +6,6 @@ interface BookCardProps {
   book: Book;
   isFavorite?: boolean;
   showFavoriteButton?: boolean;
-  showActionButtons?: boolean;
   onFavoriteToggle?: () => void;
 }
 
@@ -14,7 +13,6 @@ export default function BookCard({
   book, 
   isFavorite = false, 
   showFavoriteButton = false,
-  showActionButtons = false,
   onFavoriteToggle
 }: BookCardProps) {
   const [showDescription, setShowDescription] = useState(false);

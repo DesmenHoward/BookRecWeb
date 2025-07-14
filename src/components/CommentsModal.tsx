@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Send, Heart, MoreVertical } from 'lucide-react';
 import { useUserProfileStore } from '../store/userProfileStore';
 
@@ -19,7 +19,6 @@ interface Comment {
 interface CommentsModalProps {
   visible: boolean;
   onClose: () => void;
-  postId: string;
   postAuthor: string;
   initialComments?: Comment[];
 }
@@ -27,7 +26,6 @@ interface CommentsModalProps {
 export default function CommentsModal({ 
   visible, 
   onClose, 
-  postId,
   postAuthor,
   initialComments = []
 }: CommentsModalProps) {

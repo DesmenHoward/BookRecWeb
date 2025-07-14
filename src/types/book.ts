@@ -40,8 +40,25 @@ export interface Book {
   genres: string[];
   publishedYear: number;
   rating?: number;
+  reviewCount?: number;
   status?: 'read' | 'already-read' | 'not-interested' | null;
   isbn?: string;      // ISBN-13 or ISBN-10
   isbn13?: string;    // ISBN-13 specifically
   isbn10?: string;    // ISBN-10 specifically
+}
+
+export interface FirestoreBook {
+  id: string;
+  title: string;
+  author: string;
+  description: string;
+  coverUrl: string;
+  genres: string[];
+  rating: number;
+  reviewCount: number;
+  coverImages: {
+    small: string;
+    medium: string;
+    large: string;
+  };
 }

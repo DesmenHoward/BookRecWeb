@@ -1,19 +1,17 @@
-import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  Modal, 
-  TextInput, 
-  ScrollView, 
-  Platform,
-  Alert,
+import { useState } from 'react';
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Modal,
   Switch,
-  ActivityIndicator,
-  Image
-} from 'react-native';
-import { X, Plus, BookOpen, TriangleAlert } from 'lucide-react-native';
+  CircularProgress,
+  Avatar,
+  Snackbar,
+  Alert
+} from '@mui/material';
+import { X, BookOpen, TriangleAlert } from 'lucide-react';
 import { useBookStore } from '../store/bookStore';
 import { useUserProfileStore } from '../store/userProfileStore';
 import { useAuthStore } from '../store/authStore';
@@ -48,20 +46,21 @@ export default function CreatePostModal({ visible, onClose, onPost }: CreatePost
   const [containsSpoiler, setContainsSpoiler] = useState(false);
   const [spoilerType, setSpoilerType] = useState<'general' | 'plot' | 'ending' | 'sensitive'>('general');
   const [spoilerWarning, setSpoilerWarning] = useState('This post contains spoilers');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!user || !profile) {
-      Alert.alert('Error', 'You must be logged in to create a post');
+      setError('You must be logged in to create a post');
       return;
     }
 
     if (!content.trim()) {
-      Alert.alert('Error', 'Please write something before posting');
+      setError('Please write something before posting');
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
 
     try {
       const postsRef = collection(firestore, 'posts');
@@ -90,385 +89,305 @@ export default function CreatePostModal({ visible, onClose, onPost }: CreatePost
       onPost(newPost);
     } catch (error) {
       console.error('Error creating post:', error);
-      Alert.alert('Error', 'Failed to create post. Please try again.');
+      setError('Failed to create post. Please try again.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
+      open={visible}
+      onClose={onClose}
+      aria-labelledby="create-post-modal"
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create Post</Text>
-          <TouchableOpacity 
-            style={[styles.postButton, !content.trim() && styles.postButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={!content.trim() || isLoading}
+      <Box sx={styles.container}>
+        <Typography variant="h6">Create Post</Typography>
+        {loading ? (
+          <CircularProgress size={20} />
+        ) : (
+          <Button 
+            variant="contained" 
+            color="primary"
+            onClick={() => handleSubmit()}
+            disabled={!content.trim()}
           >
-            {isLoading ? (
-              <ActivityIndicator color="white" size="small" />
-            ) : (
-              <Text style={styles.postButtonText}>Post</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+            Post
+          </Button>
+        )}
+        <TextField 
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          multiline
+          rows={4}
+          placeholder="What's on your mind?"
+          sx={styles.input}
+        />
 
-        <ScrollView style={styles.content}>
-          <TextInput
-            style={styles.input}
-            placeholder="What's on your mind?"
-            placeholderTextColor="#999999"
-            multiline
-            value={content}
-            onChangeText={setContent}
-            autoFocus
-          />
-
-          {selectedBook ? (
-            <View style={styles.selectedBook}>
-              <View style={styles.selectedBookHeader}>
-                <Text style={styles.selectedBookTitle}>Selected Book</Text>
-                <TouchableOpacity onPress={() => setSelectedBook(null)}>
-                  <X size={16} color="#AAAAAA" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.selectedBookContent}>
-                <Image 
-                  source={{ uri: selectedBook.coverUrl }} 
-                  style={styles.selectedBookCover}
-                  {...Platform.select({
-                    web: {
-                      loading: 'lazy',
-                      crossOrigin: 'anonymous'
-                    }
-                  })}
-                />
-                <View style={styles.selectedBookInfo}>
-                  <Text style={styles.selectedBookName}>{selectedBook.title}</Text>
-                  <Text style={styles.selectedBookAuthor}>by {selectedBook.author}</Text>
-                </View>
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity 
-              style={styles.addBookButton}
-              onPress={() => setShowBookSelector(true)}
-            >
-              <BookOpen size={20} color={THEME.accent} />
-              <Text style={styles.addBookText}>Add a Book</Text>
-            </TouchableOpacity>
-          )}
-
-          {showBookSelector && (
-            <View style={styles.bookSelector}>
-              <View style={styles.bookSelectorHeader}>
-                <Text style={styles.bookSelectorTitle}>Select a Book</Text>
-                <TouchableOpacity onPress={() => setShowBookSelector(false)}>
-                  <X size={20} color="#AAAAAA" />
-                </TouchableOpacity>
-              </View>
-              <ScrollView style={styles.bookList}>
-                {favorites.map(book => (
-                  <TouchableOpacity
-                    key={book.id}
-                    style={styles.bookItem}
-                    onPress={() => {
-                      setSelectedBook(book);
-                      setShowBookSelector(false);
-                    }}
-                  >
-                    <Image 
-                      source={{ uri: book.coverUrl }} 
-                      style={styles.bookItemCover}
-                      {...Platform.select({
-                        web: {
-                          loading: 'lazy',
-                          crossOrigin: 'anonymous'
-                        }
-                      })}
-                    />
-                    <View style={styles.bookItemInfo}>
-                      <Text style={styles.bookItemTitle}>{book.title}</Text>
-                      <Text style={styles.bookItemAuthor}>by {book.author}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          <View style={styles.spoilerContainer}>
-            <View style={styles.spoilerHeader}>
-              <View style={styles.spoilerHeaderLeft}>
-                <TriangleAlert size={18} color="#FF9800" />
-                <Text style={styles.spoilerHeaderText}>Contains Spoilers</Text>
-              </View>
-              <Switch
-                value={containsSpoiler}
-                onValueChange={setContainsSpoiler}
-                trackColor={{ false: '#444444', true: '#FF9800' }}
-                thumbColor={containsSpoiler ? '#FFFFFF' : '#CCCCCC'}
+        {selectedBook ? (
+          <Box sx={styles.selectedBook}>
+            <Box sx={styles.selectedBookHeader}>
+              <Typography variant="body1">Selected Book</Typography>
+              <Button 
+                variant="text" 
+                color="primary" 
+                onClick={() => setSelectedBook(null)}
+              >
+                <X size={16} color="#AAAAAA" />
+              </Button>
+            </Box>
+            <Box sx={styles.selectedBookContent}>
+              <Avatar 
+                src={selectedBook.coverUrl} 
+                sx={styles.selectedBookCover}
               />
-            </View>
+              <Box sx={styles.selectedBookInfo}>
+                <Typography variant="body1">{selectedBook.title}</Typography>
+                <Typography variant="body2">by {selectedBook.author}</Typography>
+              </Box>
+            </Box>
+          </Box>
+        ) : (
+          <Button 
+            variant="contained" 
+            color="primary" 
+            sx={styles.addBookButton}
+            onClick={() => setShowBookSelector(true)}
+          >
+            <BookOpen size={20} color="white" />
+            <Typography variant="button">Add a Book</Typography>
+          </Button>
+        )}
 
-            {containsSpoiler && (
-              <View style={styles.spoilerOptions}>
-                <Text style={styles.spoilerLabel}>Spoiler Type</Text>
-                <View style={styles.spoilerTypes}>
-                  {[
-                    { id: 'general', label: 'General' },
-                    { id: 'plot', label: 'Plot' },
-                    { id: 'ending', label: 'Ending' },
-                    { id: 'sensitive', label: 'Sensitive' }
-                  ].map(type => (
-                    <TouchableOpacity
-                      key={type.id}
-                      style={[
-                        styles.spoilerType,
-                        spoilerType === type.id && styles.spoilerTypeSelected
-                      ]}
-                      onPress={() => setSpoilerType(type.id as any)}
-                    >
-                      <Text style={[
-                        styles.spoilerTypeText,
-                        spoilerType === type.id && styles.spoilerTypeTextSelected
-                      ]}>
-                        {type.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+        {showBookSelector && (
+          <Box sx={styles.bookSelector}>
+            <Box sx={styles.bookSelectorHeader}>
+              <Typography variant="body1">Select a Book</Typography>
+              <Button 
+                variant="text" 
+                color="primary" 
+                onClick={() => setShowBookSelector(false)}
+              >
+                <X size={20} color="#AAAAAA" />
+              </Button>
+            </Box>
+            <Box sx={styles.bookList}>
+              {favorites.map(book => (
+                <Button 
+                  key={book.id}
+                  variant="contained" 
+                  color="primary" 
+                  sx={styles.bookItem}
+                  onClick={() => {
+                    setSelectedBook(book);
+                    setShowBookSelector(false);
+                  }}
+                >
+                  <Avatar 
+                    src={book.coverUrl} 
+                    sx={styles.bookItemCover}
+                  />
+                  <Box sx={styles.bookItemInfo}>
+                    <Typography variant="body1">{book.title}</Typography>
+                    <Typography variant="body2">by {book.author}</Typography>
+                  </Box>
+                </Button>
+              ))}
+            </Box>
+          </Box>
+        )}
 
-                <Text style={styles.spoilerLabel}>Warning Message</Text>
-                <TextInput
-                  style={styles.spoilerWarningInput}
-                  value={spoilerWarning}
-                  onChangeText={setSpoilerWarning}
-                  placeholder="Enter warning message"
-                  placeholderTextColor="#999999"
-                />
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </View>
+        <Box sx={styles.spoilerContainer}>
+          <Box sx={styles.spoilerHeader}>
+            <Box sx={styles.spoilerHeaderLeft}>
+              <TriangleAlert size={18} color="#FF9800" />
+              <Typography variant="body1">Contains Spoilers</Typography>
+            </Box>
+            <Switch
+              checked={containsSpoiler}
+              onChange={(e) => setContainsSpoiler(e.target.checked)}
+              color="primary"
+            />
+          </Box>
+
+          {containsSpoiler && (
+            <Box sx={styles.spoilerOptions}>
+              <Typography variant="body2">Spoiler Type</Typography>
+              <Box sx={styles.spoilerTypes}>
+                {[
+                  { id: 'general', label: 'General' },
+                  { id: 'plot', label: 'Plot' },
+                  { id: 'ending', label: 'Ending' },
+                  { id: 'sensitive', label: 'Sensitive' }
+                ].map(type => (
+                  <Button 
+                    key={type.id}
+                    variant="contained" 
+                    color="primary" 
+                    sx={[
+                      styles.spoilerType,
+                      spoilerType === type.id && styles.spoilerTypeSelected
+                    ]}
+                    onClick={() => setSpoilerType(type.id as any)}
+                  >
+                    <Typography variant="button">{type.label}</Typography>
+                  </Button>
+                ))}
+              </Box>
+
+              <Typography variant="body2">Warning Message</Typography>
+              <TextField 
+                value={spoilerWarning}
+                onChange={(e) => setSpoilerWarning(e.target.value)}
+                multiline
+                rows={2}
+                placeholder="Enter warning message"
+                sx={styles.spoilerWarningInput}
+              />
+            </Box>
+          )}
+        </Box>
+        <Snackbar 
+          open={!!error} 
+          autoHideDuration={6000} 
+          onClose={() => setError(null)}
+        >
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        </Snackbar>
+      </Box>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 15,
-    backgroundColor: '#111111',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  closeButton: {
-    padding: 5,
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '90%',
+    maxWidth: 500,
+    bgcolor: 'background.paper',
+    boxShadow: 24,
+    p: 4,
+    borderRadius: 2
   },
   postButton: {
     backgroundColor: THEME.accent,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  postButtonDisabled: {
-    backgroundColor: '#666666',
-  },
-  postButtonText: {
     color: 'white',
-    fontWeight: 'bold',
-  },
-  content: {
-    flex: 1,
-    padding: 15,
+    padding: '8px 16px',
+    borderRadius: 20,
+    marginBottom: 20
   },
   input: {
-    color: 'white',
-    fontSize: 16,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    marginBottom: 20,
-  },
-  addBookButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#222222',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  addBookText: {
-    color: THEME.accent,
-    marginLeft: 10,
-    fontSize: 16,
+    width: '100%',
+    marginBottom: 20
   },
   selectedBook: {
     backgroundColor: '#222222',
     borderRadius: 8,
     padding: 15,
-    marginBottom: 20,
+    marginBottom: 20
   },
   selectedBookHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  selectedBookTitle: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginBottom: 10
   },
   selectedBookContent: {
-    flexDirection: 'row',
+    flexDirection: 'row'
   },
   selectedBookCover: {
     width: 60,
     height: 90,
-    borderRadius: 4,
+    borderRadius: 4
   },
   selectedBookInfo: {
     flex: 1,
     marginLeft: 15,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
-  selectedBookName: {
+  addBookButton: {
+    backgroundColor: '#222222',
     color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  selectedBookAuthor: {
-    color: '#CCCCCC',
-    fontSize: 14,
+    padding: '8px 16px',
+    borderRadius: 20,
+    marginBottom: 20
   },
   bookSelector: {
     backgroundColor: '#222222',
     borderRadius: 8,
     padding: 15,
-    marginBottom: 20,
+    marginBottom: 20
   },
   bookSelectorHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
-  },
-  bookSelectorTitle: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    marginBottom: 15
   },
   bookList: {
-    maxHeight: 300,
+    maxHeight: 300
   },
   bookItem: {
     flexDirection: 'row',
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    borderBottomColor: '#333333'
   },
   bookItemCover: {
     width: 40,
     height: 60,
-    borderRadius: 4,
+    borderRadius: 4
   },
   bookItemInfo: {
     flex: 1,
     marginLeft: 10,
-    justifyContent: 'center',
-  },
-  bookItemTitle: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  bookItemAuthor: {
-    color: '#CCCCCC',
-    fontSize: 12,
+    justifyContent: 'center'
   },
   spoilerContainer: {
     backgroundColor: '#222222',
     borderRadius: 8,
-    padding: 15,
+    padding: 15
   },
   spoilerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   spoilerHeaderLeft: {
     flexDirection: 'row',
-    alignItems: 'center',
-  },
-  spoilerHeaderText: {
-    color: 'white',
-    fontSize: 16,
-    marginLeft: 10,
+    alignItems: 'center'
   },
   spoilerOptions: {
-    marginTop: 15,
-  },
-  spoilerLabel: {
-    color: '#CCCCCC',
-    fontSize: 14,
-    marginBottom: 10,
+    marginTop: 15
   },
   spoilerTypes: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 15,
+    marginBottom: 15
   },
   spoilerType: {
     backgroundColor: '#333333',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    color: 'white',
+    padding: '4px 8px',
     borderRadius: 15,
     marginRight: 8,
-    marginBottom: 8,
+    marginBottom: 8
   },
   spoilerTypeSelected: {
     backgroundColor: 'rgba(255, 152, 0, 0.2)',
     borderWidth: 1,
-    borderColor: '#FF9800',
-  },
-  spoilerTypeText: {
-    color: '#CCCCCC',
-    fontSize: 14,
-  },
-  spoilerTypeTextSelected: {
-    color: '#FF9800',
+    borderColor: '#FF9800'
   },
   spoilerWarningInput: {
     backgroundColor: '#333333',
-    borderRadius: 8,
-    padding: 12,
     color: 'white',
-    fontSize: 14,
-  },
-});
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20
+  }
+};

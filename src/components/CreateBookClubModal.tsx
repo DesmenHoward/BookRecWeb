@@ -1,31 +1,19 @@
-import React, { useState } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  Modal, 
-  TextInput, 
-  TouchableOpacity, 
-  ScrollView, 
-  Platform,
-  Alert 
-} from 'react-native';
-import { X, Check, Plus, BookOpen } from 'lucide-react-native';
+import { useState } from 'react';
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Modal,
+  CircularProgress,
+  Snackbar,
+  Alert
+} from '@mui/material';
+import { X, Plus, BookOpen } from 'lucide-react';
 import { useBookStore } from '../store/bookStore';
+import { Book } from '../types/book';
 import { useBookClubStore, BookClub } from '../store/bookClubStore';
 import { validateBookClub } from '../utils/bookClub';
-import { Book } from '../types/book';
-
-// Theme colors
-const THEME = {
-  primary: '#7D6E83',
-  accent: '#A75D5D',
-  background: '#F9F5EB',
-  surface: '#EFE3D0',
-  text: '#4F4557',
-  textLight: '#7D6E83',
-  border: '#D0B8A8'
-};
 
 interface CreateBookClubModalProps {
   visible: boolean;
@@ -33,20 +21,17 @@ interface CreateBookClubModalProps {
   onCreateSuccess?: (club: BookClub) => void;
 }
 
-export default function CreateBookClubModal({
-  visible,
-  onClose,
-  onCreateSuccess
-}: CreateBookClubModalProps) {
+export function CreateBookClubModal({ visible, onClose, onCreateSuccess }: CreateBookClubModalProps) {
   const { favorites } = useBookStore();
   const { createBookClub } = useBookClubStore();
-  
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [showBookSelector, setShowBookSelector] = useState(false);
-  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const handleSelectBook = (book: Book) => {
     setSelectedBook(book);
     setShowBookSelector(false);
@@ -55,315 +40,297 @@ export default function CreateBookClubModal({
     const newCategories = [...new Set([...selectedCategories, ...book.genres])];
     setSelectedCategories(newCategories);
   };
-  
+
   const handleToggleCategory = (category: string) => {
-    setSelectedCategories(prev => 
+    setSelectedCategories(prev =>
       prev.includes(category)
         ? prev.filter(c => c !== category)
         : [...prev, category]
     );
   };
-  
-  const handleCreate = () => {
-    if (!selectedBook) {
-      Alert.alert('Error', 'Please select a book for the club');
+
+  const handleSubmit = async () => {
+    if (!name.trim() || !description.trim() || !selectedBook) {
+      setError('Please fill in all fields and select a book');
       return;
     }
-    
-    const newClub = {
-      name,
-      description,
-      categories: selectedCategories,
-      currentBook: selectedBook,
-      books: [selectedBook],
-      coverImage: selectedBook.coverUrl,
-      nextMeeting: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-    };
-    
-    const error = validateBookClub(newClub);
-    if (error) {
-      Alert.alert('Error', error);
-      return;
+
+    setLoading(true);
+
+    try {
+      const newClub = {
+        name,
+        description,
+        categories: selectedCategories,
+        currentBook: selectedBook,
+        books: [selectedBook],
+        coverImage: selectedBook.coverUrl,
+        nextMeeting: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      };
+      
+      const validationError = validateBookClub(newClub);
+      if (validationError) {
+        setError(validationError);
+        return;
+      }
+      
+      createBookClub(newClub);
+      onCreateSuccess?.(newClub);
+      
+      // Reset form
+      setName('');
+      setDescription('');
+      setSelectedCategories([]);
+      setSelectedBook(null);
+      
+      onClose();
+    } catch (error) {
+      console.error('Error creating book club:', error);
+      setError('Failed to create book club. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    createBookClub(newClub);
-    onCreateSuccess?.(newClub as BookClub);
-    
-    // Reset form
-    setName('');
-    setDescription('');
-    setSelectedCategories([]);
-    setSelectedBook(null);
-    
-    onClose();
   };
-  
+
   return (
     <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
+      open={visible}
+      onClose={onClose}
+      aria-labelledby="create-book-club-modal"
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create Book Club</Text>
-          <TouchableOpacity 
-            style={[
-              styles.createButton,
-              (!name || !description || !selectedBook) && styles.createButtonDisabled
-            ]}
-            onPress={handleCreate}
-            disabled={!name || !description || !selectedBook}
-          >
-            <Check size={24} color="white" />
-          </TouchableOpacity>
-        </View>
-        
-        <ScrollView style={styles.content}>
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Club Name</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Enter club name"
-              placeholderTextColor="#999999"
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Description</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Describe your book club"
-              placeholderTextColor="#999999"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Current Book</Text>
-            {selectedBook ? (
-              <View style={styles.selectedBook}>
-                <BookOpen size={24} color={THEME.accent} />
-                <Text style={styles.selectedBookText}>
-                  {selectedBook.title}
-                </Text>
-                <TouchableOpacity 
-                  style={styles.changeButton}
-                  onPress={() => setShowBookSelector(true)}
-                >
-                  <Text style={styles.changeButtonText}>Change</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity 
-                style={styles.selectBookButton}
-                onPress={() => setShowBookSelector(true)}
+      <Box sx={styles.container}>
+        <Box sx={styles.header}>
+          <Typography variant="h6">Create Book Club</Typography>
+          <Button onClick={onClose}>
+            <X size={24} />
+          </Button>
+        </Box>
+
+        <Box sx={styles.content}>
+          <TextField
+            fullWidth
+            label="Club Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            sx={styles.input}
+          />
+
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            sx={styles.input}
+          />
+
+          <Typography variant="body1" sx={styles.label}>Current Book</Typography>
+          {selectedBook ? (
+            <Box sx={styles.selectedBook}>
+              <BookOpen size={24} />
+              <Typography variant="body1" sx={styles.selectedBookText}>
+                {selectedBook.title}
+              </Typography>
+              <Button 
+                variant="contained"
+                color="primary"
+                onClick={() => setShowBookSelector(true)}
+                sx={styles.changeButton}
               >
-                <Plus size={20} color={THEME.accent} />
-                <Text style={styles.selectBookText}>Select a Book</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {showBookSelector && (
-            <View style={styles.bookSelector}>
-              <Text style={styles.sectionTitle}>Select from your favorites</Text>
-              <ScrollView style={styles.bookList}>
-                {favorites.map(book => (
-                  <TouchableOpacity
-                    key={book.id}
-                    style={styles.bookItem}
-                    onPress={() => handleSelectBook(book)}
-                  >
-                    <BookOpen size={20} color={THEME.textLight} />
-                    <Text style={styles.bookItemText}>{book.title}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+                <Typography variant="body2">Change</Typography>
+              </Button>
+            </Box>
+          ) : (
+            <Button 
+              variant="contained"
+              color="primary"
+              onClick={() => setShowBookSelector(true)}
+              sx={styles.selectBookButton}
+            >
+              <Plus size={20} />
+              <Typography variant="body1">Select a Book</Typography>
+            </Button>
           )}
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Categories</Text>
-            <View style={styles.categoriesContainer}>
-              {selectedBook?.genres.map(genre => (
-                <TouchableOpacity
-                  key={genre}
-                  style={[
-                    styles.categoryTag,
-                    selectedCategories.includes(genre) && styles.categoryTagSelected
-                  ]}
-                  onPress={() => handleToggleCategory(genre)}
-                >
-                  <Text style={[
-                    styles.categoryText,
-                    selectedCategories.includes(genre) && styles.categoryTextSelected
-                  ]}>
-                    {genre}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
-      </View>
+
+          {showBookSelector && (
+            <Box sx={styles.bookSelector}>
+              <Typography variant="body2" sx={styles.sectionTitle}>Select from your favorites</Typography>
+              <Box sx={styles.bookList}>
+                {favorites.map(book => (
+                  <Button
+                    key={book.id}
+                    onClick={() => handleSelectBook(book)}
+                    sx={styles.bookItem}
+                  >
+                    <BookOpen size={20} />
+                    <Typography variant="body2" sx={styles.bookItemText}>{book.title}</Typography>
+                  </Button>
+                ))}
+              </Box>
+            </Box>
+          )}
+
+          <Typography variant="body1" sx={styles.label}>Categories</Typography>
+          <Box sx={styles.categoriesContainer}>
+            {selectedBook?.genres.map(genre => (
+              <Button
+                key={genre}
+                onClick={() => handleToggleCategory(genre)}
+                sx={[
+                  styles.categoryTag,
+                  selectedCategories.includes(genre) && styles.categoryTagSelected
+                ]}
+              >
+                <Typography variant="body2">
+                  {genre}
+                </Typography>
+              </Button>
+            ))}
+          </Box>
+
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSubmit}
+            disabled={loading || !name.trim() || !description.trim() || !selectedBook}
+            sx={styles.submitButton}
+          >
+            {loading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              <>
+                <Plus size={20} />
+                <Typography variant="body1">Create Club</Typography>
+              </>
+            )}
+          </Button>
+        </Box>
+
+        <Snackbar
+          open={!!error}
+          autoHideDuration={6000}
+          onClose={() => setError(null)}
+        >
+          <Alert severity="error" onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        </Snackbar>
+      </Box>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
-    flex: 1,
-    backgroundColor: '#000000',
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '90%',
+    maxWidth: 500,
+    bgcolor: 'background.paper',
+    boxShadow: 24,
+    p: 4,
+    borderRadius: 2
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    display: 'flex',
     justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 15,
-    backgroundColor: '#111111',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333333',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  createButton: {
-    backgroundColor: THEME.accent,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
     alignItems: 'center',
-  },
-  createButtonDisabled: {
-    backgroundColor: '#666666',
+    mb: 3
   },
   content: {
-    flex: 1,
-    padding: 20,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2
   },
-  formGroup: {
-    marginBottom: 20,
+  input: {
+    mb: 2
+  },
+  submitButton: {
+    mt: 2,
+    display: 'flex',
+    gap: 1,
+    alignItems: 'center'
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'white',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#222222',
-    borderRadius: 8,
-    padding: 12,
-    color: 'white',
-    fontSize: 16,
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
+    color: 'black',
+    mb: 1
   },
   selectedBook: {
-    flexDirection: 'row',
+    display: 'flex',
     alignItems: 'center',
-    backgroundColor: '#222222',
+    backgroundColor: '#F9F5EB',
     borderRadius: 8,
-    padding: 12,
+    p: 2,
+    mb: 2
   },
   selectedBookText: {
     flex: 1,
-    color: 'white',
+    color: 'black',
     fontSize: 16,
-    marginLeft: 10,
+    ml: 1
   },
   changeButton: {
-    backgroundColor: THEME.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    px: 2,
+    py: 1,
     borderRadius: 15,
-  },
-  changeButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
+    ml: 1
   },
   selectBookButton: {
-    flexDirection: 'row',
+    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#222222',
+    backgroundColor: '#F9F5EB',
     borderRadius: 8,
-    padding: 12,
-  },
-  selectBookText: {
-    color: THEME.accent,
-    fontSize: 16,
-    marginLeft: 8,
+    p: 2,
+    mb: 2
   },
   bookSelector: {
-    marginBottom: 20,
+    mb: 2
   },
   sectionTitle: {
     fontSize: 14,
-    color: '#CCCCCC',
-    marginBottom: 10,
+    color: '#666666',
+    mb: 1
   },
   bookList: {
     maxHeight: 200,
+    overflowY: 'auto'
   },
   bookItem: {
-    flexDirection: 'row',
+    display: 'flex',
     alignItems: 'center',
-    backgroundColor: '#222222',
+    backgroundColor: '#F9F5EB',
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
+    p: 2,
+    mb: 1,
+    width: '100%',
+    justifyContent: 'flex-start'
   },
   bookItemText: {
-    color: 'white',
+    color: 'black',
     fontSize: 14,
-    marginLeft: 10,
+    ml: 1
   },
   categoriesContainer: {
-    flexDirection: 'row',
+    display: 'flex',
     flexWrap: 'wrap',
+    gap: 1
   },
   categoryTag: {
-    backgroundColor: '#222222',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    marginRight: 8,
-    marginBottom: 8,
+    backgroundColor: '#F9F5EB',
+    px: 2,
+    py: 1,
+    borderRadius: 15
   },
   categoryTagSelected: {
-    backgroundColor: 'rgba(167, 93, 93, 0.2)',
+    backgroundColor: 'rgba(25, 118, 210, 0.1)',
     borderWidth: 1,
-    borderColor: THEME.accent,
-  },
-  categoryText: {
-    color: '#CCCCCC',
-    fontSize: 14,
-  },
-  categoryTextSelected: {
-    color: THEME.accent,
-    fontWeight: '600',
-  },
-});
+    borderStyle: 'solid',
+    borderColor: 'primary.main'
+  }
+};

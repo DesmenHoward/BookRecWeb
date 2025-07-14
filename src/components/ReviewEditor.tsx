@@ -1,130 +1,103 @@
-import { useState, useEffect } from 'react';
-import { Star } from 'lucide-react';
-import { useReviewStore } from '@/store/reviewStore';
-import { useAuthStore } from '@/store/authStore';
+import React, { useState } from 'react';
+import { Book } from '../types/book';
+import { Review } from '../types/review';
 
 interface ReviewEditorProps {
-  reviewId?: string;
-  bookId?: string;
-  bookTitle?: string;
-  initialRating?: number;
-  initialText?: string;
+  book: Book;
+  onSubmit: (review: Omit<Review, 'id' | 'date'>) => Promise<void>;
+  initialReview?: Review;
   onCancel?: () => void;
 }
 
-const RatingStars = ({ rating, onRatingChange }: { rating: number; onRatingChange: (rating: number) => void }) => {
-  return (
-    <div className="flex space-x-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => onRatingChange(star)}
-          className="focus:outline-none"
-        >
-          <Star
-            className={`w-6 h-6 ${
-              star <= rating ? 'fill-yellow-400 text-yellow-400' : 'fill-none text-gray-300'
-            }`}
-          />
-        </button>
-      ))}
-    </div>
-  );
-};
-
-export const ReviewEditor = ({
-  reviewId,
-  bookId,
-  bookTitle,
-  initialRating = 5,
-  initialText = '',
+export const ReviewEditor: React.FC<ReviewEditorProps> = ({
+  book,
+  onSubmit,
+  initialReview,
   onCancel
-}: ReviewEditorProps) => {
-  const [rating, setRating] = useState(initialRating);
-  const [text, setText] = useState(initialText);
-  const [error, setError] = useState('');
-  
-  const { addReview, updateReview, isLoading, error: storeError, clearError } = useReviewStore();
-  const { user } = useAuthStore();
-
-  useEffect(() => {
-    if (storeError) {
-      setError(storeError);
-      clearError();
-    }
-  }, [storeError, clearError]);
+}) => {
+  const [rating, setRating] = useState(initialReview?.rating || 0);
+  const [text, setText] = useState(initialReview?.text || '');
+  const [isPublic, setIsPublic] = useState(initialReview?.isPublic ?? true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (!user) {
-      setError('You must be logged in to submit a review');
-      return;
-    }
+    setIsSubmitting(true);
 
     try {
-      if (reviewId) {
-        await updateReview(reviewId, { rating, text });
-      } else if (bookId && bookTitle) {
-        await addReview({
-          bookId,
-          bookTitle,
-          rating,
-          text,
-          userId: user.uid,
-          userName: user.displayName || 'Anonymous User',
-          isPublic: true
-        });
-      }
-      onCancel?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save review');
+      await onSubmit({
+        book,
+        rating,
+        text,
+        isPublic,
+        userId: initialReview?.userId || '',
+        userName: initialReview?.userName || '',
+        userAvatar: initialReview?.userAvatar
+      });
+    } catch (error) {
+      console.error('Error submitting review:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Rating</label>
-        <RatingStars rating={rating} onRatingChange={setRating} />
+        <label className="block text-sm font-medium text-gray-700">Rating</label>
+        <div className="flex space-x-2 mt-1">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setRating(value)}
+              className={`p-2 rounded-full ${
+                value <= rating ? 'text-yellow-500' : 'text-gray-300'
+              }`}
+            >
+              ★
+            </button>
+          ))}
+        </div>
       </div>
 
       <div>
-        <label htmlFor="review-text" className="block text-sm font-medium text-gray-700 mb-1">
-          Review
-        </label>
+        <label className="block text-sm font-medium text-gray-700">Review</label>
         <textarea
-          id="review-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           rows={4}
-          placeholder="Write your review here..."
+          required
         />
       </div>
 
-      {error && (
-        <div className="text-red-600 text-sm">{error}</div>
-      )}
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          checked={isPublic}
+          onChange={(e) => setIsPublic(e.target.checked)}
+          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        <label className="ml-2 block text-sm text-gray-900">Make review public</label>
+      </div>
 
-      <div className="flex justify-end space-x-2">
+      <div className="flex justify-end space-x-3">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
           >
             Cancel
           </button>
         )}
         <button
           type="submit"
-          disabled={isLoading}
-          className="px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          disabled={isSubmitting}
+          className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
-          {isLoading ? 'Saving...' : reviewId ? 'Update Review' : 'Post Review'}
+          {isSubmitting ? 'Submitting...' : initialReview ? 'Update Review' : 'Submit Review'}
         </button>
       </div>
     </form>

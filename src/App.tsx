@@ -9,6 +9,7 @@ import Favorites from './pages/Favorites';
 import Reviews from './pages/Reviews';
 import Contact from './pages/Contact';
 import Terms from './pages/Terms';
+import MobileApp from './pages/MobileApp';
 import NotFound from './pages/NotFound';
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
           <Route path="profile/:userId" element={<Profile />} />
           <Route path="contact" element={<Contact />} />
           <Route path="terms" element={<Terms />} />
+          <Route path="mobile-app" element={<MobileApp />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

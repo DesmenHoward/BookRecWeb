@@ -37,8 +37,10 @@ export default function ProfileMenu({ onPressMenuItem }: ProfileMenuProps) {
       
       // Force a re-check after a moment
       setTimeout(() => {
-        checkAdminStatus(user.email);
-        console.log('Re-checking admin state:', useAdminStore.getState().isAdmin);
+        if (user?.email) {
+          checkAdminStatus(user.email);
+          console.log('Re-checking admin state:', useAdminStore.getState().isAdmin);
+        }
       }, 500);
     }
   }, [user?.email, checkAdminStatus, adminChecked]);

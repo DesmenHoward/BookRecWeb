@@ -12,7 +12,7 @@ const Footer = () => {
               to="/mobile-app"
               className="text-gray-600 hover:text-blue-500 transition-colors whitespace-nowrap"
             >
-              Mobile app?
+              Mobile web app?
             </Link>
           </div>
           <Link to="/" className="mx-2 md:mx-4 flex-shrink-0">

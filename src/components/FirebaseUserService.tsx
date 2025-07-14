@@ -31,7 +31,6 @@ export interface FirestoreUserProfile {
     newRecommendations: boolean;
     friendActivity: boolean;
     appUpdates: boolean;
-    emailNotifications: boolean;
   };
 }
 
@@ -97,11 +96,10 @@ export function useFirebaseUserService() {
             allowRecommendations: true
           },
           theme: profile.theme || 'dark',
-          notific0ationSettings: profile.notificationSettings || {
+          notificationSettings: profile.notificationSettings || {
             newRecommendations: true,
             friendActivity: true,
-            appUpdates: true,
-            emailNotifications: true
+            appUpdates: true
           },
           email: profile.email || user.email || '',
           language: profile.language || 'en',
@@ -152,7 +150,7 @@ export function useFirebaseUserService() {
           newRecommendations: true,
           friendActivity: true,
           appUpdates: true,
-          emailNotifications: true
+
         },
         email: user.email || '',
         language: 'en',
@@ -198,7 +196,7 @@ export function useFirebaseUserService() {
           newRecommendations: true,
           friendActivity: true,
           appUpdates: true,
-          emailNotifications: true
+
         },
         email: '',
         language: 'en',

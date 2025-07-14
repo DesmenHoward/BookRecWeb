@@ -1,5 +1,8 @@
 import { useFirebaseStore } from '../store/firebaseStore';
-import { Book, FirestoreBook } from '../types/book';
+import { useAuthStore } from '../store/authStore';
+import { Book } from '../types/book';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { firestore } from '../firebase/config';
 
 // Interface for book data in Firestore
 export interface FirestoreBook {
@@ -28,16 +31,18 @@ const FAVORITES_COLLECTION = 'favorites';
 // Hook for book operations with Firebase
 export function useFirebaseBookService() {
   const { 
-    addDoc, 
-    getDoc, 
-    getDocs, 
-    query, 
-    user
+    getDocument, 
+    setDocument, 
+    updateDocument, 
+    deleteDocument 
   } = useFirebaseStore();
+  
+  // Get user from auth store
+  const { user } = useAuthStore();
 
   const convertFirestoreToBook = (firestoreBook: FirestoreBook): Book => {
     return {
-      id: firestoreBook.id,
+      id: firestoreBook.id || '',
       title: firestoreBook.title,
       author: firestoreBook.author,
       description: firestoreBook.description,
@@ -57,8 +62,19 @@ export function useFirebaseBookService() {
   // Get all books
   const getAllBooks = async (): Promise<Book[]> => {
     try {
-      const books = await getDocs(BOOKS_COLLECTION);
-      return books.map(book => convertFirestoreToBook(book as FirestoreBook));
+      const booksRef = collection(firestore, BOOKS_COLLECTION);
+      const querySnapshot = await getDocs(booksRef);
+      
+      const books: Book[] = [];
+      querySnapshot.forEach((doc) => {
+        const bookData = doc.data() as FirestoreBook;
+        books.push(convertFirestoreToBook({
+          ...bookData,
+          id: doc.id
+        }));
+      });
+      
+      return books;
     } catch (error) {
       console.error('Error getting books:', error);
       throw error;
@@ -68,8 +84,8 @@ export function useFirebaseBookService() {
   // Get a single book by ID
   const getBookById = async (bookId: string): Promise<Book | null> => {
     try {
-      const book = await getDoc(BOOKS_COLLECTION, bookId);
-      return book ? convertFirestoreToBook(book as FirestoreBook) : null;
+      const book = await getDocument(BOOKS_COLLECTION, bookId);
+      return book ? convertFirestoreToBook({...book, id: bookId} as FirestoreBook) : null;
     } catch (error) {
       console.error(`Error getting book ${bookId}:`, error);
       throw error;
@@ -81,8 +97,9 @@ export function useFirebaseBookService() {
     if (!user) throw new Error('User not authenticated');
     
     try {
-      // Create a user-book relationship
-      await addDoc(FAVORITES_COLLECTION, {
+      // Create a user-book relationship with a unique document ID
+      const favoriteId = `${user.uid}_${book.id}`;
+      await setDocument(FAVORITES_COLLECTION, favoriteId, {
         userId: user.uid,
         bookId: book.id,
         addedAt: new Date().toISOString()
@@ -98,14 +115,9 @@ export function useFirebaseBookService() {
     if (!user) throw new Error('User not authenticated');
     
     try {
-      // Find the favorite document
-      const favorites = await query(FAVORITES_COLLECTION, 'userId', '==', user.uid);
-      
-      const favoriteToDelete = favorites.find((fav: any) => fav.bookId === bookId);
-      
-      if (favoriteToDelete) {
-        await addDoc(FAVORITES_COLLECTION, favoriteToDelete.id);
-      }
+      // With the unique document ID format, we can directly delete
+      const favoriteId = `${user.uid}_${bookId}`;
+      await deleteDocument(FAVORITES_COLLECTION, favoriteId);
     } catch (error) {
       console.error('Error removing book from favorites:', error);
       throw error;
@@ -117,18 +129,20 @@ export function useFirebaseBookService() {
     if (!user) return [];
     
     try {
-      // Get all favorites for the user
-      const favorites = await query(FAVORITES_COLLECTION, 'userId', '==', user.uid);
+      // Query favorites collection for user's favorites
+      const favoritesRef = collection(firestore, FAVORITES_COLLECTION);
+      const q = query(favoritesRef, where('userId', '==', user.uid));
+      const querySnapshot = await getDocs(q);
       
       // Get the actual book data for each favorite
-      const bookIds = favorites.map(fav => fav.bookId);
       const books: Book[] = [];
-      
-      for (const bookId of bookIds) {
-        const book = await getBookById(bookId);
+      const bookPromises = querySnapshot.docs.map(async (doc) => {
+        const favoriteData = doc.data();
+        const book = await getBookById(favoriteData.bookId);
         if (book) books.push(book);
-      }
+      });
       
+      await Promise.all(bookPromises);
       return books;
     } catch (error) {
       console.error('Error getting favorite books:', error);
@@ -144,17 +158,18 @@ export function useFirebaseBookService() {
     if (!user) throw new Error('User not authenticated');
     
     try {
-      // Check if user-book relationship exists
-      const userBooks = await query(USER_BOOKS_COLLECTION, 'userId', '==', user.uid);
+      // With a consistent ID format, we can directly update or create
+      const userBookId = `${user.uid}_${bookId}`;
       
-      const userBook = userBooks.find((ub: any) => ub.bookId === bookId);
+      // Try to get the document first
+      const existingUserBook = await getDocument(USER_BOOKS_COLLECTION, userBookId);
       
-      if (userBook) {
+      if (existingUserBook) {
         // Update existing relationship
-        await addDoc(USER_BOOKS_COLLECTION, userBook.id, { status });
+        await updateDocument(USER_BOOKS_COLLECTION, userBookId, { status });
       } else {
         // Create new relationship
-        await addDoc(USER_BOOKS_COLLECTION, {
+        await setDocument(USER_BOOKS_COLLECTION, userBookId, {
           userId: user.uid,
           bookId,
           status,
@@ -167,11 +182,10 @@ export function useFirebaseBookService() {
         const book = await getBookById(bookId);
         if (book) {
           // Check if already in favorites
-          const favorites = await query(FAVORITES_COLLECTION, 'userId', '==', user.uid);
+          const favoriteId = `${user.uid}_${bookId}`;
+          const existingFavorite = await getDocument(FAVORITES_COLLECTION, favoriteId);
           
-          const isAlreadyFavorite = favorites.some((fav: any) => fav.bookId === bookId);
-          
-          if (!isAlreadyFavorite) {
+          if (!existingFavorite) {
             await addToFavorites(book);
           }
         }

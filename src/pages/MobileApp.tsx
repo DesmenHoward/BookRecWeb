@@ -4,9 +4,9 @@ import { Smartphone, Apple } from 'lucide-react';
 const MobileApp: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-center mb-8">Mobile App Setup</h1>
+      <h1 className="text-3xl font-bold text-center mb-8">Mobile Web App Setup</h1>
       <p className="text-center mb-8 text-gray-600 max-w-2xl mx-auto">
-        BookRec works great as a mobile app! Follow these simple steps to add our web app to your home screen.
+        BookRec is a mobile responsive web app wrapped in a web container! Follow these simple steps to add our web app to your home screen for a native-like experience.
       </p>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

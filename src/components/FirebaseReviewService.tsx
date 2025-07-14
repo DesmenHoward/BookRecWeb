@@ -1,7 +1,9 @@
 import { useFirebaseStore } from '../store/firebaseStore';
+import { useAuthStore } from '../store/authStore';
 import { Review } from '../types/review';
-import { Book } from '../types/book';
 import { useFirebaseBookService } from './FirebaseBookService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { firestore } from '../firebase/config';
 
 // Interface for review data in Firestore
 export interface FirestoreReview {
@@ -23,14 +25,36 @@ const REVIEWS_COLLECTION = 'reviews';
 // Hook for review operations with Firebase
 export function useFirebaseReviewService() {
   const { 
-    addDocument, 
-    getDocuments, 
     getDocument, 
+    setDocument, 
     updateDocument, 
-    deleteDocument,
-    queryDocuments,
-    user
+    deleteDocument
   } = useFirebaseStore();
+  
+  // Get user from auth store
+  const { user } = useAuthStore();
+  
+  // Helper function to add a document with auto-generated ID
+  const addDocument = async (collectionName: string, data: any): Promise<string> => {
+    const docId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    await setDocument(collectionName, docId, data);
+    return docId;
+  };
+  
+  // Helper function to query documents
+  const queryDocuments = async <T extends Record<string, any>>(collectionName: string, field: string, operator: string, value: any): Promise<T[]> => {
+    const collectionRef = collection(firestore, collectionName);
+    const q = query(collectionRef, where(field, operator as any, value));
+    const querySnapshot = await getDocs(q);
+    
+    const results: T[] = [];
+    querySnapshot.forEach((doc) => {
+      // Convert to unknown first to avoid type errors
+      results.push({ ...doc.data(), id: doc.id } as unknown as T);
+    });
+    
+    return results;
+  };
   
   const { getBookById } = useFirebaseBookService();
 
@@ -39,9 +63,12 @@ export function useFirebaseReviewService() {
     if (!user) throw new Error('User not authenticated');
     
     try {
+      // Extract bookId from the book object
+      const bookId = review.book.id;
+      
       const firestoreReview: FirestoreReview = {
         userId: user.uid,
-        bookId: review.bookId,
+        bookId: bookId,
         rating: review.rating,
         text: review.text,
         date: review.date,
@@ -65,7 +92,7 @@ export function useFirebaseReviewService() {
     
     try {
       // Get the review to check ownership
-      const review = await getDocument<FirestoreReview>(REVIEWS_COLLECTION, reviewId);
+      const review = await getDocument(REVIEWS_COLLECTION, reviewId) as FirestoreReview | null;
       
       if (!review) {
         throw new Error('Review not found');
@@ -89,7 +116,7 @@ export function useFirebaseReviewService() {
     
     try {
       // Get the review to check ownership
-      const review = await getDocument<FirestoreReview>(REVIEWS_COLLECTION, reviewId);
+      const review = await getDocument(REVIEWS_COLLECTION, reviewId) as FirestoreReview | null;
       
       if (!review) {
         throw new Error('Review not found');
@@ -113,7 +140,7 @@ export function useFirebaseReviewService() {
     
     try {
       // Get the review to check ownership and current visibility
-      const review = await getDocument<FirestoreReview>(REVIEWS_COLLECTION, reviewId);
+      const review = await getDocument(REVIEWS_COLLECTION, reviewId) as FirestoreReview | null;
       
       if (!review) {
         throw new Error('Review not found');
@@ -154,7 +181,8 @@ export function useFirebaseReviewService() {
         if (book) {
           reviews.push({
             id: review.id || `review-${Date.now()}`,
-            bookId: review.bookId,
+            userId: review.userId,
+            userName: review.userId, // Using userId as userName for simplicity
             book,
             rating: review.rating,
             text: review.text,
@@ -194,18 +222,37 @@ export function useFirebaseReviewService() {
         throw new Error('Book not found');
       }
       
-      // Map to Review objects
-      return publicReviews.map(review => ({
-        id: review.id || `review-${Date.now()}`,
-        bookId: review.bookId,
-        book,
-        rating: review.rating,
-        text: review.text,
-        date: review.date,
-        isPublic: review.isPublic,
-        containsSpoiler: review.containsSpoiler,
-        spoilerType: review.spoilerType,
-        spoilerWarning: review.spoilerWarning
+      // Wait for all the async operations to complete
+      return await Promise.all(publicReviews.map(async (review) => {
+        // Get user profile to get the username
+        let userName = 'Anonymous';
+        
+        try {
+          // This is a simplified implementation - in a real app, you'd query user profiles
+          // For now, we'll just use the userId as the userName
+          userName = review.userId;
+        } catch (error) {
+          console.error('Error getting user profile:', error);
+        }
+        
+        // Ensure book is not null before creating the Review object
+        if (!book) {
+          throw new Error(`Book not found for review ${review.id}`);
+        }
+        
+        return {
+          id: review.id || `review-${Date.now()}`,
+          userId: review.userId,
+          userName: userName,
+          book, // This is guaranteed to be non-null now
+          rating: review.rating,
+          text: review.text,
+          date: review.date,
+          isPublic: review.isPublic,
+          containsSpoiler: review.containsSpoiler,
+          spoilerType: review.spoilerType,
+          spoilerWarning: review.spoilerWarning
+        };
       }));
     } catch (error) {
       console.error(`Error getting reviews for book ${bookId}:`, error);

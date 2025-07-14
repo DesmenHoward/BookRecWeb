@@ -119,7 +119,7 @@ export default function GenreSelectionModal({
         <div className="flex flex-col items-center mb-6 sm:mb-8">
           <BookOpen size={48} className="text-accent mb-4 sm:mb-6" />
           <h1 className="text-2xl sm:text-3xl font-bold text-text text-center mb-2 sm:mb-3">
-            {initialGenres.length > 0 ? 'Update Your Genres' : 'Welcome to Book Tinder'}
+            {initialGenres.length > 0 ? 'Update Your Genres' : 'Welcome to BookRec'}
           </h1>
           <p className="text-text-light text-center text-sm sm:text-base">
             Select your top 3 favorite genres to get personalized book recommendations

@@ -215,7 +215,7 @@ export default function ProfileScreen() {
             userName: profile.displayName,
             rating,
             text,
-            createdAt: new Date(),
+            // createdAt will be added by the addReview function
             isPublic: isPublic || true
           });
           setReviewModalVisible(false);

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Cropper from 'react-cropper';
 import { X, Upload, Check } from 'lucide-react';
@@ -58,7 +58,7 @@ export default function ImageUploader({ isOpen, onClose, onUpload }: ImageUpload
       });
 
       const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob as Blob), 'image/jpeg', 0.9);
+        canvas.toBlob((blob: Blob | null) => resolve(blob as Blob), 'image/jpeg', 0.9);
       });
 
       // Validate file size (max 2MB)

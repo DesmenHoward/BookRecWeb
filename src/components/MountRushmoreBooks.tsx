@@ -1,4 +1,4 @@
-import { useState } from 'react';
+
 import { Mountain, Plus, X } from 'lucide-react';
 import { useBookStore } from '../store/bookStore';
 

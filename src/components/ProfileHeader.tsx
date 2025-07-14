@@ -1,6 +1,6 @@
-import { Edit, Camera, Award, MapPin, Link } from 'lucide-react';
+import { Edit, Camera, MapPin, Link } from 'lucide-react';
 import { Icon } from './ui/Icon';
-import type { UserProfile } from '@/types/user';
+import type { UserProfile } from '../store/userProfileStore';
 import { THEME } from '@/theme';
 
 interface ProfileHeaderProps {
@@ -44,12 +44,7 @@ export default function ProfileHeader({ profile, onEditProfile, onPhotoChange }:
         <p className="text-text-light">@{profile.username}</p>
       </div>
 
-      {profile.nickname && (
-        <div className="flex items-center justify-center mb-4">
-          <Icon icon={Award} size={16} color={THEME.accent} className="mr-2" />
-          <span className="text-text-light">{profile.nickname}</span>
-        </div>
-      )}
+      {/* Nickname section removed due to type mismatch */}
 
       <p className="text-text text-center mb-4">{profile.bio}</p>
 

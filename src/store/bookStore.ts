@@ -92,10 +92,49 @@ export const useBookStore = create<BookState>()(
             });
           }
           
-          // Shuffle the books to mix genres
-          const shuffledBooks = [...books].sort(() => Math.random() - 0.5);
+          // Ensure strict genre filtering - only include books that have at least one of the selected genres
+          books = books.filter(book => {
+            return book.genres.some(genre => selectedGenres.includes(genre));
+          });
           
-          set({ books: shuffledBooks, selectedGenres, isLoading: false });
+          // Group books by genre to ensure even distribution
+          const booksByGenre: Record<string, Book[]> = {};
+          selectedGenres.forEach(genre => {
+            booksByGenre[genre] = [];
+          });
+          
+          // Categorize books by genre
+          books.forEach(book => {
+            // Find all matching genres from selected genres
+            const matchingGenres = book.genres.filter(genre => selectedGenres.includes(genre));
+            
+            if (matchingGenres.length > 0) {
+              // Add book to all matching genre categories
+              matchingGenres.forEach(genre => {
+                booksByGenre[genre].push({...book});
+              });
+            }
+          });
+          
+          // Shuffle each genre's books separately for variety
+          for (const genre of selectedGenres) {
+            booksByGenre[genre].sort(() => Math.random() - 0.5);
+          }
+          
+          // Interleave books from different genres
+          const interleavedBooks: Book[] = [];
+          const maxBooksPerGenre = Math.max(...selectedGenres.map(genre => booksByGenre[genre].length));
+          
+          // Create a perfect cycle of genres
+          for (let i = 0; i < maxBooksPerGenre; i++) {
+            for (const genre of selectedGenres) {
+              if (i < booksByGenre[genre].length) {
+                interleavedBooks.push(booksByGenre[genre][i]);
+              }
+            }
+          }
+          
+          set({ books: interleavedBooks, selectedGenres, isLoading: false });
         } catch (error: any) {
           console.error('Error initializing books:', error);
           set({ error: error.message, isLoading: false });
@@ -146,11 +185,50 @@ export const useBookStore = create<BookState>()(
             moreBooks.push(...apiBooks);
           }
           
-          // Shuffle the new books
-          const shuffledNewBooks = [...moreBooks].sort(() => Math.random() - 0.5);
+          // Ensure strict genre filtering - only include books that have at least one of the selected genres
+          const filteredMoreBooks = moreBooks.filter(book => {
+            return book.genres.some(genre => selectedGenres.includes(genre));
+          });
+          
+          // Group books by genre to ensure even distribution
+          const booksByGenre: Record<string, Book[]> = {};
+          selectedGenres.forEach(genre => {
+            booksByGenre[genre] = [];
+          });
+          
+          // Categorize books by genre
+          filteredMoreBooks.forEach(book => {
+            // Find all matching genres from selected genres
+            const matchingGenres = book.genres.filter(genre => selectedGenres.includes(genre));
+            
+            if (matchingGenres.length > 0) {
+              // Add book to all matching genre categories
+              matchingGenres.forEach(genre => {
+                booksByGenre[genre].push({...book});
+              });
+            }
+          });
+          
+          // Shuffle each genre's books separately for variety
+          for (const genre of selectedGenres) {
+            booksByGenre[genre].sort(() => Math.random() - 0.5);
+          }
+          
+          // Interleave books from different genres
+          const interleavedBooks: Book[] = [];
+          const maxBooksPerGenre = Math.max(...selectedGenres.map(genre => booksByGenre[genre].length));
+          
+          // Create a perfect cycle of genres
+          for (let i = 0; i < maxBooksPerGenre; i++) {
+            for (const genre of selectedGenres) {
+              if (i < booksByGenre[genre].length) {
+                interleavedBooks.push(booksByGenre[genre][i]);
+              }
+            }
+          }
           
           set({ 
-            books: [...books, ...shuffledNewBooks],
+            books: [...books, ...interleavedBooks],
             isLoading: false 
           });
         } catch (error: any) {

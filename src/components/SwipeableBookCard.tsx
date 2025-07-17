@@ -97,11 +97,19 @@ export default function SwipeableBookCard({ book, onSwipe }: SwipeableBookCardPr
                   const img = e.target as HTMLImageElement;
                   // Try medium size if large fails
                   if (img.src === book.coverImages.large) {
+                    console.log(`Large cover failed for ${book.title}, trying medium`); 
                     img.src = book.coverImages.medium;
                   }
                   // Try small size if medium fails
                   else if (img.src === book.coverImages.medium) {
+                    console.log(`Medium cover failed for ${book.title}, trying small`);
                     img.src = book.coverImages.small;
+                  }
+                  // If all sizes fail, use a guaranteed fallback
+                  else if (img.src === book.coverImages.small) {
+                    console.log(`All cover sizes failed for ${book.title}, using fallback`);
+                    // Use a reliable placeholder service as final fallback
+                    img.src = `https://via.placeholder.com/400x600?text=${encodeURIComponent(book.title)}`;
                   }
                 }}
               />

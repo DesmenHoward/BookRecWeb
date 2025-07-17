@@ -33,6 +33,10 @@ export default function Home() {
       setSelectedGenres(genres);
       setShowGenreSelection(false);
       initializeBooks(genres);
+    } else {
+      // If no genres are selected, use default genres to ensure books are loaded
+      const defaultGenres = ['Fiction', 'Mystery', 'Science Fiction'];
+      initializeBooks(defaultGenres);
     }
   }, []);
 

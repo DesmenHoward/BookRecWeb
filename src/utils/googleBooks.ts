@@ -30,13 +30,23 @@ function cleanDescription(text: string): string {
   return text;
 }
 
-function getCoverUrl(imageLinks?: { thumbnail?: string; smallThumbnail?: string }, size: 'small' | 'medium' | 'large' = 'medium'): string {
-  const defaultCover = 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?ixlib=rb-1.2.1&auto=format&fit=crop';
+function getCoverUrl(imageLinks?: { thumbnail?: string; smallThumbnail?: string; extraLarge?: string; large?: string; medium?: string }, size: 'small' | 'medium' | 'large' = 'medium'): string {
+  // More reliable default cover that clearly indicates missing image
+  const defaultCover = 'https://via.placeholder.com/400x600?text=No+Cover+Available';
   
   if (!imageLinks) return defaultCover;
 
-  // Get the best available image URL
-  let imageUrl = imageLinks.thumbnail || imageLinks.smallThumbnail;
+  // Get the best available image URL based on requested size
+  let imageUrl: string | undefined;
+  
+  if (size === 'large') {
+    imageUrl = imageLinks.extraLarge || imageLinks.large || imageLinks.thumbnail || imageLinks.smallThumbnail;
+  } else if (size === 'medium') {
+    imageUrl = imageLinks.large || imageLinks.medium || imageLinks.thumbnail || imageLinks.smallThumbnail;
+  } else { // small
+    imageUrl = imageLinks.medium || imageLinks.smallThumbnail || imageLinks.thumbnail;
+  }
+  
   if (!imageUrl) return defaultCover;
 
   // Convert from HTTP to HTTPS if necessary
@@ -121,6 +131,19 @@ export function convertGoogleBook(googleBook: GoogleBook): Book | null {
     }
 
     // Get cover URLs for different sizes
+    // Check if we have image links before trying to get cover URLs
+    const hasImageLinks = volumeInfo.imageLinks && 
+      (volumeInfo.imageLinks.thumbnail || 
+       volumeInfo.imageLinks.smallThumbnail || 
+       volumeInfo.imageLinks.large || 
+       volumeInfo.imageLinks.medium || 
+       volumeInfo.imageLinks.extraLarge);
+    
+    // Log if book is missing cover images
+    if (!hasImageLinks) {
+      console.log(`Book missing cover images: ${volumeInfo.title} (${googleBook.id})`);
+    }
+    
     const coverImages = {
       small: getCoverUrl(volumeInfo.imageLinks, 'small'),
       medium: getCoverUrl(volumeInfo.imageLinks, 'medium'),

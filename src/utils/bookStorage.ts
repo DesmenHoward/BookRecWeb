@@ -140,6 +140,13 @@ export const getAllBooks = async (options?: {
       books = booksJson ? JSON.parse(booksJson) : [];
     }
     
+    // Strict genre filtering: only include books that have at least one of the selected genres
+    if (options?.genres?.length) {
+      books = books.filter(book => {
+        return book.genres.some(genre => options.genres!.includes(genre));
+      });
+    }
+    
     // Sort books by rating and recency
     books.sort((a, b) => {
       // First by rating (if available)

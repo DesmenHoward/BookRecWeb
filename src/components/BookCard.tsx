@@ -26,9 +26,29 @@ export default function BookCard({
         {/* Main cover */}
         <div className="absolute inset-0 ml-[12px]">
           <img 
-            src={book.coverUrl} 
+            src={book.coverImages.large || book.coverUrl} 
             alt={book.title}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              // Try large cover if it's not already being used
+              if (img.src !== book.coverImages.large && book.coverImages.large) {
+                img.src = book.coverImages.large;
+              }
+              // Try medium size if large fails
+              else if (img.src === book.coverImages.large) {
+                img.src = book.coverImages.medium;
+              }
+              // Try small size if medium fails
+              else if (img.src === book.coverImages.medium) {
+                img.src = book.coverImages.small;
+              }
+              // If all sizes fail, use a guaranteed fallback
+              else if (img.src === book.coverImages.small) {
+                // Use a reliable placeholder service as final fallback
+                img.src = `https://via.placeholder.com/400x600?text=${encodeURIComponent(book.title)}`;
+              }
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         </div>

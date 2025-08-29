@@ -81,15 +81,12 @@ export default function GenreSelectionModal({
       if (prev.includes(genre)) {
         return prev.filter(g => g !== genre);
       }
-      if (prev.length < 3) {
-        return [...prev, genre];
-      }
-      return prev;
+      return [...prev, genre];
     });
   };
 
   const handleComplete = () => {
-    if (selectedGenres.length === 3) {
+    if (selectedGenres.length >= 1) {
       onComplete(selectedGenres);
       onClose();
     }
@@ -122,7 +119,7 @@ export default function GenreSelectionModal({
             {initialGenres.length > 0 ? 'Update Your Genres' : 'Welcome to BookRec'}
           </h1>
           <p className="text-text-light text-center text-sm sm:text-base">
-            Select your top 3 favorite genres to get personalized book recommendations
+            Select your favorite genres to get personalized book recommendations
           </p>
         </div>
 
@@ -131,17 +128,14 @@ export default function GenreSelectionModal({
             <button
               key={genre}
               onClick={() => toggleGenre(genre)}
-              disabled={selectedGenres.length === 3 && !selectedGenres.includes(genre)}
+              disabled={false}
               className={`
                 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border-2 transition-colors text-sm sm:text-base
                 ${selectedGenres.includes(genre)
                   ? 'bg-accent border-accent text-white'
                   : 'border-border hover:border-accent'
                 }
-                ${selectedGenres.length === 3 && !selectedGenres.includes(genre)
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'cursor-pointer'
-                }
+                cursor-pointer
               `}
             >
               {selectedGenres.includes(genre) && (
@@ -154,15 +148,15 @@ export default function GenreSelectionModal({
 
         <div className="text-center">
           <p className="text-text-light mb-4 text-sm">
-            {selectedGenres.length}/3 genres selected
+            {selectedGenres.length} genre{selectedGenres.length !== 1 ? 's' : ''} selected
           </p>
           
           <button
             onClick={handleComplete}
-            disabled={selectedGenres.length !== 3}
+            disabled={selectedGenres.length < 1}
             className={`
               w-full py-3 px-6 rounded-lg font-semibold text-white text-sm sm:text-base
-              ${selectedGenres.length === 3
+              ${selectedGenres.length >= 1
                 ? 'bg-accent hover:opacity-90'
                 : 'bg-gray-400 cursor-not-allowed'
               }

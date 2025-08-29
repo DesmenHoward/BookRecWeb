@@ -430,6 +430,10 @@ export default function Profile() {
         visible={showGenreModal}
         onClose={() => setShowGenreModal(false)}
         onComplete={handleGenreUpdate}
+        onSurpriseMe={() => {
+          // In profile context, surprise me just closes modal since it's for updating preferences
+          setShowGenreModal(false);
+        }}
         initialGenres={selectedGenres}
       />
     </div>

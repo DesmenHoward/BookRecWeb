@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Book } from '../types/book';
 import { getInitialBookList, getBookRecommendations, searchBooks as searchGoogleBooks } from '../utils/googleBooks';
+import { RecommendationEngine, UserProfile, BookInteraction } from '../utils/recommendationEngine';
+import { TrendingBooksService } from '../utils/trendingBooks';
+import { useUserStore } from './userStore';
 import { firestore } from '../firebase/config';
 import { doc, updateDoc, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { useAuthStore } from './authStore';
@@ -14,6 +17,8 @@ interface BookState {
   favorites: Book[];
   topThree: Book[];
   recommendations: Book[];
+  personalizedBooks: Book[];
+  userProfile: UserProfile | null;
   isLoading: boolean;
   error: string | null;
   favoriteGenres: Record<string, number>;
@@ -23,6 +28,7 @@ interface BookState {
   
   // Actions
   initializeBooks: (selectedGenres?: string[]) => Promise<void>;
+  initializeTrendingBooks: () => Promise<void>;
   loadMoreBooks: () => Promise<void>;
   swipeBook: (liked: boolean) => void;
   generateRecommendations: (limit?: number) => Promise<void>;
@@ -45,6 +51,8 @@ export const useBookStore = create<BookState>()(
       favorites: [],
       topThree: [],
       recommendations: [],
+      personalizedBooks: [],
+      userProfile: null,
       isLoading: false,
       error: null,
       favoriteGenres: {},
@@ -121,20 +129,36 @@ export const useBookStore = create<BookState>()(
             booksByGenre[genre].sort(() => Math.random() - 0.5);
           }
           
-          // Interleave books from different genres
-          const interleavedBooks: Book[] = [];
-          const maxBooksPerGenre = Math.max(...selectedGenres.map(genre => booksByGenre[genre].length));
+          // Apply personalized recommendations if user has interaction history
+          const { swipedBooks, userProfile } = get();
+          let finalBooks: Book[];
           
-          // Create a perfect cycle of genres
-          for (let i = 0; i < maxBooksPerGenre; i++) {
-            for (const genre of selectedGenres) {
-              if (i < booksByGenre[genre].length) {
-                interleavedBooks.push(booksByGenre[genre][i]);
+          if (userProfile && swipedBooks.length >= 3) {
+            // Use personalized recommendations
+            const scoredBooks = RecommendationEngine.getPersonalizedRecommendations(
+              books, 
+              userProfile, 
+              books.length
+            );
+            finalBooks = scoredBooks.map(scored => scored.book);
+            set({ personalizedBooks: finalBooks });
+          } else {
+            // Interleave books from different genres (fallback)
+            const interleavedBooks: Book[] = [];
+            const maxBooksPerGenre = Math.max(...selectedGenres.map(genre => booksByGenre[genre].length));
+            
+            // Create a perfect cycle of genres
+            for (let i = 0; i < maxBooksPerGenre; i++) {
+              for (const genre of selectedGenres) {
+                if (i < booksByGenre[genre].length) {
+                  interleavedBooks.push(booksByGenre[genre][i]);
+                }
               }
             }
+            finalBooks = interleavedBooks;
           }
           
-          set({ books: interleavedBooks, selectedGenres, isLoading: false });
+          set({ books: finalBooks, selectedGenres, isLoading: false });
         } catch (error: any) {
           console.error('Error initializing books:', error);
           set({ error: error.message, isLoading: false });
@@ -238,7 +262,7 @@ export const useBookStore = create<BookState>()(
       },
 
       swipeBook: async (liked: boolean) => {
-        const { books, currentBookIndex, swipedBooks, favoriteGenres } = get();
+        const { books, currentBookIndex, swipedBooks, favoriteGenres, userProfile } = get();
         const currentBook = books[currentBookIndex];
         
         if (!currentBook) return;
@@ -257,6 +281,26 @@ export const useBookStore = create<BookState>()(
           });
         }
         
+        // Update user profile with new interaction
+        const newInteraction: BookInteraction = {
+          bookId: currentBook.id,
+          action: liked ? 'like' : 'dislike',
+          timestamp: Date.now(),
+          book: currentBook
+        };
+        
+        const updatedProfile = userProfile 
+          ? RecommendationEngine.updateProfileWithInteraction(userProfile, newInteraction)
+          : RecommendationEngine.buildUserProfile([newInteraction]);
+        
+        // Update userStore with like/dislike
+        const { updateLikedBooks, updateDislikedBooks } = useUserStore.getState();
+        if (liked) {
+          await updateLikedBooks(currentBook, true);
+        } else {
+          await updateDislikedBooks(currentBook, true);
+        }
+        
         // Store the book if liked
         if (liked) {
           await storeBook(currentBook);
@@ -265,7 +309,8 @@ export const useBookStore = create<BookState>()(
         set({
           currentBookIndex: currentBookIndex + 1,
           swipedBooks: newSwipedBooks,
-          favoriteGenres: newFavoriteGenres
+          favoriteGenres: newFavoriteGenres,
+          userProfile: updatedProfile
         });
         
         // Load more books if needed
@@ -275,20 +320,31 @@ export const useBookStore = create<BookState>()(
       },
 
       generateRecommendations: async (limit = 5) => {
-        const { swipedBooks, books } = get();
+        const { swipedBooks, books, userProfile } = get();
         
         try {
           set({ isLoading: true, error: null });
           
-          // Get liked books
-          const likedBookIds = swipedBooks
-            .filter(swipe => swipe.liked)
-            .map(swipe => swipe.bookId);
+          let recommendations: Book[];
           
-          const likedBooks = books.filter(book => likedBookIds.includes(book.id));
-          
-          // Get recommendations
-          const recommendations = await getBookRecommendations(likedBooks);
+          if (userProfile && swipedBooks.length >= 3) {
+            // Use personalized recommendation engine
+            const allAvailableBooks = await getAllBooks();
+            const scoredBooks = RecommendationEngine.getPersonalizedRecommendations(
+              allAvailableBooks,
+              userProfile,
+              limit * 2 // Get more to filter from
+            );
+            recommendations = scoredBooks.map(scored => scored.book).slice(0, limit);
+          } else {
+            // Fallback to original recommendation logic
+            const likedBookIds = swipedBooks
+              .filter(swipe => swipe.liked)
+              .map(swipe => swipe.bookId);
+            
+            const likedBooks = books.filter(book => likedBookIds.includes(book.id));
+            recommendations = await getBookRecommendations(likedBooks);
+          }
           
           // Store recommendations
           await storeBooks(recommendations);
@@ -442,7 +498,7 @@ export const useBookStore = create<BookState>()(
           set({ isLoading: true });
           
           // Clear previous state when loading new user data
-          set({ topThree: [], favorites: [], favoriteGenres: {}, userNickname: null });
+          set({ topThree: [], favorites: [], favoriteGenres: {}, userNickname: null, userProfile: null });
           
           // Load data from Firestore if user is logged in
           if (user) {
@@ -467,6 +523,15 @@ export const useBookStore = create<BookState>()(
                 favoriteGenres: data.favoriteGenres || {},
                 userNickname: data.nickname || null
               });
+              
+              // Build user profile from interaction history
+              const { swipedBooks } = get();
+              if (swipedBooks.length > 0) {
+                const allBooks = await getAllBooks();
+                const interactions = RecommendationEngine.convertSwipesToInteractions(swipedBooks, allBooks);
+                const profile = RecommendationEngine.buildUserProfile(interactions);
+                set({ userProfile: profile });
+              }
               
               // Update localStorage with favorites
               localStorage.setItem(`userFavorites_${user.uid}`, JSON.stringify(data.favorites || []));
@@ -597,6 +662,35 @@ export const useBookStore = create<BookState>()(
           set({ error: 'Failed to update genres' });
         } finally {
           set({ isLoading: false });
+        }
+      },
+
+      initializeTrendingBooks: async () => {
+        try {
+          set({ isLoading: true, error: null });
+          
+          // Get curated trending books
+          const trendingBooks = await TrendingBooksService.getCuratedTrendingMix(30);
+          
+          if (trendingBooks.length === 0) {
+            throw new Error('No trending books found');
+          }
+          
+          // Store the trending books for future use
+          await storeBooks(trendingBooks);
+          
+          // Shuffle for variety on each load
+          const shuffledBooks = [...trendingBooks].sort(() => Math.random() - 0.5);
+          
+          set({ 
+            books: shuffledBooks, 
+            selectedGenres: ['trending'], 
+            currentBookIndex: 0,
+            isLoading: false 
+          });
+        } catch (error: any) {
+          console.error('Error initializing trending books:', error);
+          set({ error: error.message || 'Failed to load trending books', isLoading: false });
         }
       },
     }),

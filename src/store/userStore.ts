@@ -12,6 +12,7 @@ interface UserPreferences {
 
 interface UserData {
   likedBooks: Book[];
+  dislikedBooks: Book[];
   favorites: Book[];
   readingList: Book[];
   bookStatuses: Record<string, string>;
@@ -26,6 +27,7 @@ interface UserState {
   // Actions
   initializeUserData: () => Promise<void>;
   updateLikedBooks: (book: Book, liked: boolean) => Promise<void>;
+  updateDislikedBooks: (book: Book, disliked: boolean) => Promise<void>;
   updateFavorites: (book: Book, isFavorite: boolean) => Promise<void>;
   updateReadingList: (book: Book, addToList: boolean) => Promise<void>;
   updateBookStatus: (bookId: string, status: string) => Promise<void>;
@@ -34,6 +36,7 @@ interface UserState {
 
 const initialUserData: UserData = {
   likedBooks: [],
+  dislikedBooks: [],
   favorites: [],
   readingList: [],
   bookStatuses: {},
@@ -85,19 +88,67 @@ export const useUserStore = create<UserState>((set, get) => ({
         ? [...userData.likedBooks, book]
         : userData.likedBooks.filter(b => b.id !== book.id);
 
+      // If liking a book, remove it from disliked books
+      const updatedDislikedBooks = liked
+        ? userData.dislikedBooks.filter(b => b.id !== book.id)
+        : userData.dislikedBooks;
+
       await updateDoc(userDocRef, {
-        likedBooks: updatedLikedBooks
+        likedBooks: updatedLikedBooks,
+        dislikedBooks: updatedDislikedBooks
       });
 
       set(state => ({
         userData: {
           ...state.userData,
-          likedBooks: updatedLikedBooks
+          likedBooks: updatedLikedBooks,
+          dislikedBooks: updatedDislikedBooks
         }
       }));
     } catch (error) {
       console.error('Error updating liked books:', error);
       set({ error: 'Failed to update liked books' });
+    }
+  },
+
+  updateDislikedBooks: async (book: Book, disliked: boolean) => {
+    const { user } = useAuthStore.getState();
+    if (!user) return;
+
+    try {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const { userData } = get();
+      
+      const updatedDislikedBooks = disliked
+        ? [...userData.dislikedBooks, book]
+        : userData.dislikedBooks.filter(b => b.id !== book.id);
+
+      // If disliking a book, remove it from liked books and favorites
+      const updatedLikedBooks = disliked
+        ? userData.likedBooks.filter(b => b.id !== book.id)
+        : userData.likedBooks;
+      
+      const updatedFavorites = disliked
+        ? userData.favorites.filter(b => b.id !== book.id)
+        : userData.favorites;
+
+      await updateDoc(userDocRef, {
+        dislikedBooks: updatedDislikedBooks,
+        likedBooks: updatedLikedBooks,
+        favorites: updatedFavorites
+      });
+
+      set(state => ({
+        userData: {
+          ...state.userData,
+          dislikedBooks: updatedDislikedBooks,
+          likedBooks: updatedLikedBooks,
+          favorites: updatedFavorites
+        }
+      }));
+    } catch (error) {
+      console.error('Error updating disliked books:', error);
+      set({ error: 'Failed to update disliked books' });
     }
   },
 

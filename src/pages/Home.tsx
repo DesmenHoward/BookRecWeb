@@ -14,6 +14,7 @@ export default function Home() {
     swipeBook, 
     loadMoreBooks,
     initializeBooks,
+    initializeTrendingBooks,
     isLoading,
     error 
   } = useBookStore();
@@ -51,6 +52,13 @@ export default function Home() {
     setSelectedGenres(genres);
     setShowGenreSelection(false);
     await initializeBooks(genres);
+  };
+
+  const handleSurpriseMe = async () => {
+    localStorage.setItem('selectedGenres', JSON.stringify(['trending']));
+    setSelectedGenres(['trending']);
+    setShowGenreSelection(false);
+    await initializeTrendingBooks();
   };
 
   const handleSwipe = (direction: 'left' | 'right') => {
@@ -131,6 +139,7 @@ export default function Home() {
         <GenreSelectionModal
           visible={true}
           onComplete={handleGenreSelection}
+          onSurpriseMe={handleSurpriseMe}
           onClose={() => setShowGenreSelection(false)}
           initialGenres={selectedGenres}
         />

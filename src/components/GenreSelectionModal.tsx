@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Check, X } from 'lucide-react';
+import { BookOpen, Check, X, Sparkles } from 'lucide-react';
 
 const GENRES = [
   // Fiction Categories
@@ -50,6 +50,7 @@ const GENRES = [
 interface GenreSelectionModalProps {
   visible: boolean;
   onComplete: (selectedGenres: string[]) => void;
+  onSurpriseMe: () => void;
   onClose: () => void;
   initialGenres?: string[];
 }
@@ -57,6 +58,7 @@ interface GenreSelectionModalProps {
 export default function GenreSelectionModal({ 
   visible, 
   onComplete,
+  onSurpriseMe,
   onClose,
   initialGenres = []
 }: GenreSelectionModalProps) {
@@ -151,6 +153,16 @@ export default function GenreSelectionModal({
             {selectedGenres.length} genre{selectedGenres.length !== 1 ? 's' : ''} selected
           </p>
           
+          {/* Surprise Me Button */}
+          <button
+            onClick={onSurpriseMe}
+            className="w-full py-3 px-6 rounded-lg font-semibold text-white text-sm sm:text-base mb-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            <Sparkles size={18} />
+            Surprise Me with Trending Books
+          </button>
+          
+          {/* Regular Continue Button */}
           <button
             onClick={handleComplete}
             disabled={selectedGenres.length < 1}
@@ -162,7 +174,7 @@ export default function GenreSelectionModal({
               }
             `}
           >
-            {initialGenres.length > 0 ? 'Update Genres' : 'Continue'}
+            {initialGenres.length > 0 ? 'Update Genres' : 'Continue with Selected Genres'}
           </button>
         </div>
       </div>

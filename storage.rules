@@ -1,12 +1,131 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow authenticated users to read any profile picture
-    match /profile-pictures/{imageId} {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    function isModerator() {
+      return isAuthenticated() && 
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isModerator == true;
+    }
+    
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidSize() {
+      return request.resource.size <= 5 * 1024 * 1024; // 5MB max
+    }
+
+    function isValidFileType() {
+      return request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('application/pdf');
+    }
+
+    function isRateLimited(userId) {
+      // Implement rate limiting logic here (e.g., check timestamps of recent uploads)
+      return true; // Placeholder for actual rate limiting logic
+    }
+
+    function hasValidDimensions() {
+      return request.resource.metadata.width <= 2048 && 
+             request.resource.metadata.height <= 2048;
+    }
+
+    // Profile pictures
+    match /users/{userId}/profile/{fileName} {
+      allow read: if isOwner(userId); // Only the owner can read
+      allow create, update: if isOwner(userId) && isImage() && isValidSize();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Book covers
+    match /books/{bookId}/{fileName} {
+      allow read: if true; // Public read access
+      allow write: if isAdmin() && isImage() && isValidSize();
+    }
+
+    // Book reviews
+    match /reviews/{reviewId} {
+      allow read: if isAuthenticated(); // Allow read access to authenticated users
+      allow create: if isAuthenticated() && isRateLimited(request.auth.uid) && request.resource.data.keys().hasAll(['bookId', 'userId', 'userName', 'rating', 'text']); // Allow create if the user is authenticated and fields are present
+      allow update, delete: if isOwner(request.resource.data.userId) || isAdmin() || isModerator(); // Allow update/delete if the user is the owner of the review, an admin, or a moderator
+    }
+
+    // Book thumbnails
+    match /books/{bookId}/thumbnails/{size} {
+      allow read: if true; // Public read access for thumbnails
+      allow write: if isAdmin() && isImage() && isValidSize();
+    }
+
+    // Book temporary uploads
+    match /temp/books/{fileName} {
+      allow read: if isAdmin(); // Only admins can read temp uploads
+      allow create: if isAdmin() && isImage() && isValidSize();
+      allow delete: if isAdmin();
+    }
+
+    // Book bulk imports
+    match /imports/books/{fileName} {
+      allow read, write: if isAdmin() && request.resource.size <= 10 * 1024 * 1024; // 10MB max for book data imports
+    }
+
+    // User review attachments
+    match /reviews/{reviewId}/attachments/{fileName} {
       allow read: if true;
-      // Only allow authenticated users to upload their own profile pictures
-      allow write: if request.auth != null 
-        && imageId.matches(request.auth.uid + '-[0-9]+.jpg');
+      allow create: if isAuthenticated() && 
+                   isValidFileType() && 
+                   isValidSize() && 
+                   isRateLimited(request.auth.uid);
+      allow delete: if isOwner(request.resource.data.userId) || isAdmin() || isModerator();
+    }
+
+    // User top three favorites covers
+    match /users/{userId}/topThree/{bookId} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Backup storage for book covers
+    match /backups/covers/{fileName} {
+      allow read: if isAdmin();
+      allow write: if isAdmin() && isImage() && isValidSize();
+    }
+
+    // User activity logs (for moderation)
+    match /logs/user-activity/{userId}/{fileName} {
+      allow read: if isAdmin() || isModerator();
+      allow write: if false; // Only written by server-side functions
+    }
+
+    // Cached book cover images
+    match /cache/covers/{size}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && isValidSize() && hasValidDimensions();
+      allow delete: if isAdmin();
+    }
+
+    // Report attachments
+    match /reports/{reportId}/attachments/{fileName} {
+      allow read: if isAdmin() || isModerator();
+      allow create: if isAuthenticated() && 
+                   isValidFileType() && 
+                   isValidSize() && 
+                   isRateLimited(request.auth.uid);
+      allow delete: if isAdmin() || isModerator();
     }
   }
 }

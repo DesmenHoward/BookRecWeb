@@ -167,6 +167,35 @@ export function convertGoogleBook(googleBook: GoogleBook): Book | null {
     // Clean description but don't validate language
     const description = cleanDescription(volumeInfo.description);
 
+    // Process and clean genres
+    let genres = volumeInfo.categories || ['Fiction'];
+    
+    // Clean up genre names and split compound categories
+    const processedGenres: string[] = [];
+    genres.forEach(category => {
+      // Split categories that contain multiple genres separated by /
+      const splitCategories = category.split('/');
+      splitCategories.forEach(genre => {
+        const cleanGenre = genre.trim();
+        // Remove common prefixes and clean up
+        const finalGenre = cleanGenre
+          .replace(/^(FICTION|NON-FICTION)\s*[-–]?\s*/i, '')
+          .replace(/^(Juvenile|Young Adult)\s*[-–]?\s*/i, '')
+          .replace(/\s*[-–]\s*General$/i, '')
+          .replace(/\s*[-–]\s*Fiction$/i, '')
+          .trim();
+        
+        if (finalGenre && finalGenre.length > 0 && !processedGenres.includes(finalGenre)) {
+          processedGenres.push(finalGenre);
+        }
+      });
+    });
+    
+    // Ensure we have at least one genre
+    if (processedGenres.length === 0) {
+      processedGenres.push('Fiction');
+    }
+
     return {
       id: googleBook.id,
       title: volumeInfo.title,
@@ -174,7 +203,7 @@ export function convertGoogleBook(googleBook: GoogleBook): Book | null {
       description,
       coverUrl: coverImages.medium,
       coverImages,
-      genres: volumeInfo.categories || ['Fiction'],
+      genres: processedGenres,
       publishedYear: volumeInfo.publishedDate ? 
         new Date(volumeInfo.publishedDate).getFullYear() : 
         new Date().getFullYear(),

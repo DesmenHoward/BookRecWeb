@@ -131,14 +131,19 @@ export default function SwipeableBookCard({ book, onSwipe }: SwipeableBookCardPr
                 <p className="text-lg mb-3 drop-shadow-lg">by {book.author}</p>
                 
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {book.genres.map((genre, index) => (
+                  {book.genres.slice(0, 4).map((genre, index) => (
                     <span 
                       key={index}
-                      className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium"
+                      className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-medium border border-white/10"
                     >
                       {genre}
                     </span>
                   ))}
+                  {book.genres.length > 4 && (
+                    <span className="px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-xs font-medium border border-white/10">
+                      +{book.genres.length - 4} more
+                    </span>
+                  )}
                 </div>
                 
                 <div className="mb-4">

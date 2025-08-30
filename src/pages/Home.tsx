@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useBookStore } from '../store/bookStore';
 import GenreSelectionModal from '../components/GenreSelectionModal';
 import GenreFilter from '../components/GenreFilter';
 import SwipeableBookCard from '../components/SwipeableBookCard';
 import LoadingIndicator from '../components/LoadingIndicator';
 import EmptyState from '../components/EmptyState';
+import LoadMoreBooksModal from '../components/LoadMoreBooksModal';
 import { Heart, X } from 'lucide-react';
 
 export default function Home() {
@@ -12,18 +13,17 @@ export default function Home() {
     books, 
     currentBookIndex, 
     swipeBook, 
-    loadMoreBooks,
+    loadNext5Books,
     initializeBooks,
     initializeTrendingBooks,
+    swipesSinceLastLoad,
     isLoading,
     error 
   } = useBookStore();
 
   const [showGenreSelection, setShowGenreSelection] = useState(true);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [showLoadMoreModal, setShowLoadMoreModal] = useState(false);
   const currentBook = books[currentBookIndex];
 
   useEffect(() => {
@@ -42,10 +42,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (books.length - currentBookIndex <= 5 && !isLoading) {
-      loadMoreBooks();
+    // Show load more modal exactly at 5 swipes, not after
+    if (swipesSinceLastLoad === 5 && !showLoadMoreModal && !showGenreSelection && currentBook) {
+      setShowLoadMoreModal(true);
     }
-  }, [currentBookIndex, books.length]);
+  }, [swipesSinceLastLoad, showLoadMoreModal, showGenreSelection, currentBook]);
 
   const handleGenreSelection = async (genres: string[]) => {
     localStorage.setItem('selectedGenres', JSON.stringify(genres));
@@ -65,40 +66,19 @@ export default function Home() {
     swipeBook(direction === 'right');
   };
 
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    setIsDragging(true);
-    if ('touches' in e) {
-      setDragStartX(e.touches[0].clientX);
-    } else {
-      setDragStartX(e.clientX);
+  const handleLoadMoreBooks = async () => {
+    try {
+      setShowLoadMoreModal(false);
+      await loadNext5Books();
+    } catch (error) {
+      console.error('Error loading more books:', error);
+      setShowLoadMoreModal(false);
     }
   };
 
-  const handleDragMove = (e: React.DragEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    if (!isDragging || !cardRef.current) return;
-
-    const currentX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const deltaX = currentX - dragStartX;
-    
-    cardRef.current.style.transform = `translateX(${deltaX}px) rotate(${deltaX * 0.1}deg)`;
-    cardRef.current.style.opacity = `${1 - Math.abs(deltaX) / 500}`;
-  };
-
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    if (!isDragging || !cardRef.current) return;
-
-    const currentX = 'changedTouches' in e ? e.changedTouches[0].clientX : e.clientX;
-    const deltaX = currentX - dragStartX;
-    
-    if (Math.abs(deltaX) > 100) {
-      // Swipe threshold met
-      handleSwipe(deltaX > 0 ? 'right' : 'left');
-    }
-
-    // Reset card position
-    cardRef.current.style.transform = 'none';
-    cardRef.current.style.opacity = '1';
-    setIsDragging(false);
+  const handleSkipLoadMore = () => {
+    setShowLoadMoreModal(false);
+    // User can continue with remaining books
   };
 
   if (isLoading) {
@@ -107,13 +87,19 @@ export default function Home() {
 
   if (error) {
     return (
-      <EmptyState
-        title="Oops! Something went wrong"
-        message={error}
-        actionLabel="Try Again"
-        onAction={() => initializeBooks(selectedGenres)}
-        icon="refresh"
-      />
+      <>
+        <GenreFilter 
+          onOpenGenreSelection={() => setShowGenreSelection(true)}
+          selectedGenres={selectedGenres}
+        />
+        <EmptyState
+          title="Oops! Something went wrong"
+          message={error}
+          actionLabel="Try Again"
+          onAction={() => initializeBooks(selectedGenres)}
+          icon="refresh"
+        />
+      </>
     );
   }
 
@@ -173,23 +159,11 @@ export default function Home() {
             {/* Swipeable card container */}
             <div className="relative h-[500px] sm:h-[600px] w-[85%] sm:w-full mx-auto mb-8">
               {books.slice(currentBookIndex, currentBookIndex + 1).map(book => (
-                <div
+                <SwipeableBookCard
                   key={book.id}
-                  ref={cardRef}
-                  draggable
-                  onDragStart={handleDragStart}
-                  onDrag={handleDragMove}
-                  onDragEnd={handleDragEnd}
-                  onTouchStart={handleDragStart}
-                  onTouchMove={handleDragMove}
-                  onTouchEnd={handleDragEnd}
-                  className="absolute inset-0 touch-none cursor-grab active:cursor-grabbing transition-transform"
-                >
-                  <SwipeableBookCard
-                    book={book}
-                    onSwipe={handleSwipe}
-                  />
-                </div>
+                  book={book}
+                  onSwipe={handleSwipe}
+                />
               ))}
             </div>
 
@@ -197,19 +171,29 @@ export default function Home() {
             <div className="flex items-center justify-center gap-6 pb-8">
               <button
                 onClick={() => handleSwipe('left')}
-                className="w-16 h-16 flex items-center justify-center bg-white rounded-full shadow-lg border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-colors transform hover:scale-105"
+                className="w-16 h-16 flex items-center justify-center bg-white rounded-full shadow-lg border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-colors transform hover:scale-105 active:scale-95"
+                disabled={isLoading}
               >
                 <X size={30} />
               </button>
               
               <button
                 onClick={() => handleSwipe('right')}
-                className="w-16 h-16 flex items-center justify-center bg-white rounded-full shadow-lg border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-white transition-colors transform hover:scale-105"
+                className="w-16 h-16 flex items-center justify-center bg-white rounded-full shadow-lg border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-white transition-colors transform hover:scale-105 active:scale-95"
+                disabled={isLoading}
               >
                 <Heart size={30} />
               </button>
             </div>
           </div>
+
+          {/* Load More Books Modal */}
+          <LoadMoreBooksModal
+            visible={showLoadMoreModal}
+            onLoadMore={handleLoadMoreBooks}
+            onClose={handleSkipLoadMore}
+            swipeCount={swipesSinceLastLoad}
+          />
         </>
       )}
     </div>

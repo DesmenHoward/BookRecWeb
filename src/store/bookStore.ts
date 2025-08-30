@@ -14,6 +14,7 @@ interface BookState {
   books: Book[];
   currentBookIndex: number;
   swipedBooks: { bookId: string; liked: boolean; timestamp: number }[];
+  swipesSinceLastLoad: number;
   favorites: Book[];
   topThree: Book[];
   recommendations: Book[];
@@ -30,6 +31,7 @@ interface BookState {
   initializeBooks: (selectedGenres?: string[]) => Promise<void>;
   initializeTrendingBooks: () => Promise<void>;
   loadMoreBooks: () => Promise<void>;
+  loadNext5Books: () => Promise<void>;
   swipeBook: (liked: boolean) => void;
   generateRecommendations: (limit?: number) => Promise<void>;
   addToFavorites: (book: Book) => Promise<void>;
@@ -48,6 +50,7 @@ export const useBookStore = create<BookState>()(
       books: [],
       currentBookIndex: 0,
       swipedBooks: [],
+      swipesSinceLastLoad: 0,
       favorites: [],
       topThree: [],
       recommendations: [],
@@ -62,43 +65,57 @@ export const useBookStore = create<BookState>()(
 
       initializeBooks: async (selectedGenres = []) => {
         try {
-          set({ isLoading: true, error: null });
+          set({ isLoading: true, error: null, currentBookIndex: 0, swipesSinceLastLoad: 0 });
+          
+          // For initial load, get exactly 5 books distributed across genres
+          const initialBooksPerGenre = Math.max(1, Math.floor(5 / selectedGenres.length));
+          const totalInitialBooks = initialBooksPerGenre * selectedGenres.length;
           
           // Try to get books from storage first
-          let books = await getAllBooks({ genres: selectedGenres, limit: 20 * selectedGenres.length });
+          let books = await getAllBooks({ genres: selectedGenres, limit: totalInitialBooks });
           
-          // If we don't have enough books per genre, fetch from API
-          const booksPerGenre: Record<string, number> = {};
+          // Check if we have enough books from storage first
+          const booksPerGenreCount: Record<string, number> = {};
           books.forEach(book => {
             book.genres.forEach(genre => {
               if (selectedGenres.includes(genre)) {
-                booksPerGenre[genre] = (booksPerGenre[genre] || 0) + 1;
+                booksPerGenreCount[genre] = (booksPerGenreCount[genre] || 0) + 1;
               }
             });
           });
 
           const genresNeedingBooks = selectedGenres.filter(genre => 
-            !booksPerGenre[genre] || booksPerGenre[genre] < 20
+            !booksPerGenreCount[genre] || booksPerGenreCount[genre] < 1
           );
 
-          if (genresNeedingBooks.length > 0) {
-            // Fetch books for each genre that needs more
-            const apiBookPromises = genresNeedingBooks.map(genre => 
-              getInitialBookList([genre])
-            );
+          // Only fetch from API if we need more books
+          if (genresNeedingBooks.length > 0 || books.length < 5) {
+            console.log('Fetching books for genres:', genresNeedingBooks.length > 0 ? genresNeedingBooks : selectedGenres);
+            
+            const genresToFetch = genresNeedingBooks.length > 0 ? genresNeedingBooks : selectedGenres;
+            const apiBookPromises = genresToFetch.map(genre => {
+              console.log(`Fetching books for genre: ${genre}`);
+              return getInitialBookList([genre]);
+            });
             
             const apiBookResults = await Promise.all(apiBookPromises);
             const apiBooks = apiBookResults.flat();
             
+            console.log(`Fetched ${apiBooks.length} books from API`);
+            
             // Store the new books
-            await storeBooks(apiBooks);
+            if (apiBooks.length > 0) {
+              await storeBooks(apiBooks);
+            }
             
             // Get updated book list from storage
             books = await getAllBooks({ 
               genres: selectedGenres, 
-              limit: 20 * selectedGenres.length 
+              limit: Math.max(totalInitialBooks, 50)
             });
           }
+          
+          console.log(`Total books available: ${books.length}`);
           
           // Ensure strict genre filtering - only include books that have at least one of the selected genres
           books = books.filter(book => {
@@ -129,36 +146,66 @@ export const useBookStore = create<BookState>()(
             booksByGenre[genre].sort(() => Math.random() - 0.5);
           }
           
-          // Apply personalized recommendations if user has interaction history
-          const { swipedBooks, userProfile } = get();
-          let finalBooks: Book[];
+          // For initial load, ensure even distribution across genres (max 5 books total)
+          const distributedBooks: Book[] = [];
+          const maxBooksPerGenre = Math.max(1, Math.ceil(5 / selectedGenres.length));
           
-          if (userProfile && swipedBooks.length >= 3) {
-            // Use personalized recommendations
-            const scoredBooks = RecommendationEngine.getPersonalizedRecommendations(
-              books, 
-              userProfile, 
-              books.length
-            );
-            finalBooks = scoredBooks.map(scored => scored.book);
-            set({ personalizedBooks: finalBooks });
-          } else {
-            // Interleave books from different genres (fallback)
-            const interleavedBooks: Book[] = [];
-            const maxBooksPerGenre = Math.max(...selectedGenres.map(genre => booksByGenre[genre].length));
+          for (const genre of selectedGenres) {
+            const genreBooks = booksByGenre[genre] || [];
+            console.log(`Genre ${genre} has ${genreBooks.length} books available`);
             
-            // Create a perfect cycle of genres
-            for (let i = 0; i < maxBooksPerGenre; i++) {
-              for (const genre of selectedGenres) {
-                if (i < booksByGenre[genre].length) {
-                  interleavedBooks.push(booksByGenre[genre][i]);
-                }
-              }
+            if (genreBooks.length === 0) {
+              console.warn(`No books found for genre: ${genre}`);
+              continue;
             }
-            finalBooks = interleavedBooks;
+            
+            const shuffled = [...genreBooks].sort(() => Math.random() - 0.5);
+            const selectedForGenre = shuffled.slice(0, maxBooksPerGenre);
+            distributedBooks.push(...selectedForGenre);
+            
+            console.log(`Added ${selectedForGenre.length} books for genre ${genre}`);
+            
+            if (distributedBooks.length >= 5) break;
+          }
+          
+          // If we don't have enough books, try to get more from any available genre
+          if (distributedBooks.length < 5) {
+            const allAvailableBooks = Object.values(booksByGenre).flat();
+            const additionalBooks = allAvailableBooks
+              .filter(book => !distributedBooks.some(db => db.id === book.id))
+              .sort(() => Math.random() - 0.5)
+              .slice(0, 5 - distributedBooks.length);
+            
+            distributedBooks.push(...additionalBooks);
+            console.log(`Added ${additionalBooks.length} additional books to reach target`);
+          }
+          
+          // Shuffle final selection and limit to 5
+          const finalBooks = distributedBooks.sort(() => Math.random() - 0.5).slice(0, 5);
+          
+          console.log(`Final selection: ${finalBooks.length} books`);
+          
+          if (finalBooks.length === 0) {
+            // Don't throw error, just use default genres as fallback
+            console.warn(`No books found for selected genres: ${selectedGenres.join(', ')}, using fallback`);
+            const fallbackBooks = await getInitialBookList(['Fiction', 'Mystery', 'Romance']);
+            if (fallbackBooks.length > 0) {
+              await storeBooks(fallbackBooks);
+              const shuffledFallback = fallbackBooks.sort(() => Math.random() - 0.5).slice(0, 5);
+              set({ books: shuffledFallback, selectedGenres: ['Fiction', 'Mystery', 'Romance'], isLoading: false });
+              return;
+            } else {
+              throw new Error('Unable to load any books. Please check your internet connection.');
+            }
           }
           
           set({ books: finalBooks, selectedGenres, isLoading: false });
+          
+          console.log('Books initialized successfully:', {
+            totalBooks: finalBooks.length,
+            genres: selectedGenres,
+            bookTitles: finalBooks.map(b => b.title)
+          });
         } catch (error: any) {
           console.error('Error initializing books:', error);
           set({ error: error.message, isLoading: false });
@@ -309,14 +356,13 @@ export const useBookStore = create<BookState>()(
         set({
           currentBookIndex: currentBookIndex + 1,
           swipedBooks: newSwipedBooks,
+          swipesSinceLastLoad: get().swipesSinceLastLoad + 1,
           favoriteGenres: newFavoriteGenres,
           userProfile: updatedProfile
         });
         
-        // Load more books if needed
-        if (currentBookIndex >= books.length - 5) {
-          await get().loadMoreBooks();
-        }
+        // Don't auto-load more books - let the modal handle it
+        // The modal will trigger when swipesSinceLastLoad reaches 5
       },
 
       generateRecommendations: async (limit = 5) => {
@@ -686,11 +732,60 @@ export const useBookStore = create<BookState>()(
             books: shuffledBooks, 
             selectedGenres: ['trending'], 
             currentBookIndex: 0,
+            swipesSinceLastLoad: 0,
             isLoading: false 
           });
         } catch (error: any) {
           console.error('Error initializing trending books:', error);
           set({ error: error.message || 'Failed to load trending books', isLoading: false });
+        }
+      },
+
+      loadNext5Books: async () => {
+        const { selectedGenres, books } = get();
+        
+        try {
+          set({ isLoading: true, error: null });
+          
+          // Get 5 more books distributed across selected genres
+          const additionalBooks: Book[] = [];
+          const booksPerGenre = Math.max(1, Math.ceil(5 / selectedGenres.length));
+          
+          // Get existing book IDs to avoid duplicates
+          const existingIds = new Set(books.map(book => book.id));
+          
+          for (const genre of selectedGenres) {
+            // Get books for this genre, excluding ones we already have
+            const genreBooks = await getAllBooks({ genres: [genre], limit: 20 });
+            const newGenreBooks = genreBooks.filter(book => !existingIds.has(book.id));
+            
+            // If we don't have enough new books, fetch from API
+            if (newGenreBooks.length < booksPerGenre) {
+              const apiBooks = await getInitialBookList([genre]);
+              const newApiBooks = apiBooks.filter(book => !existingIds.has(book.id));
+              await storeBooks(newApiBooks);
+              newGenreBooks.push(...newApiBooks);
+            }
+            
+            // Shuffle and take the required amount
+            const shuffled = [...newGenreBooks].sort(() => Math.random() - 0.5);
+            additionalBooks.push(...shuffled.slice(0, booksPerGenre));
+            
+            if (additionalBooks.length >= 5) break;
+          }
+          
+          // Shuffle final selection and limit to 5
+          const finalNewBooks = additionalBooks.sort(() => Math.random() - 0.5).slice(0, 5);
+          
+          // Reset swipe counter to 0 when loading new books
+          set({ 
+            books: [...books, ...finalNewBooks],
+            swipesSinceLastLoad: 0,
+            isLoading: false 
+          });
+        } catch (error: any) {
+          console.error('Error loading next 5 books:', error);
+          set({ error: error.message || 'Failed to load more books', isLoading: false, swipesSinceLastLoad: 0 });
         }
       },
     }),

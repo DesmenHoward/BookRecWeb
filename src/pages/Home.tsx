@@ -42,8 +42,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    // Show load more modal exactly at 5 swipes, not after
-    if (swipesSinceLastLoad === 5 && !showLoadMoreModal && !showGenreSelection && currentBook) {
+    // Show load more modal exactly at 15 swipes, not after
+    if (swipesSinceLastLoad === 15 && !showLoadMoreModal && !showGenreSelection && currentBook) {
       setShowLoadMoreModal(true);
     }
   }, [swipesSinceLastLoad, showLoadMoreModal, showGenreSelection, currentBook]);
